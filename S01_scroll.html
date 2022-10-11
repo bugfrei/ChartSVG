@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        .chartWrapper {
+            position: relative;
+        }
+
+        .chartWrapper>canvas {
+            position: absolute;
+            left: 0;
+            top: 0;
+            pointer-events: none;
+        }
+
+        .chartAreaWrapper {
+            width: 600px;
+            overflow-x: scroll;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="chartWrapper">
+        <div class="chartAreaWrapper">
+            <svg width="2000" height="160">
+                <rect x="1" width="500" height="40" stroke="yellow" stroke-widht="4" fill="red" opacity="0.5" />
+                <rect x="0" width="5" height="160" fill="black" />
+                <rect x="500" width="500" height="80" stroke="yellow" stroke-widht="4" fill="green" opacity="0.5" />
+                <rect x="1000" width="500" height="120" stroke="yellow" stroke-widht="4" fill="blue" opacity="0.5" />
+                <rect x="1500" width="500" height="160" stroke="yellow" stroke-widht="4" fill="yellow" opacity="0.5" />
+                <rect x="1995" width="5" height="160" fill="black" />
+                <line x1="0" y1="0" x2="2000" y2="160" stroke="black" />
+
+                <rect x="400" width="700" height="160" fill="gray" opacity="0.5" />
+
+            </svg>
+            <svg width="2000" height="160">
+                <rect x="1" width="500" height="40" stroke="yellow" stroke-widht="4" fill="red" opacity="0.5" />
+                <rect x="0" width="5" height="160" fill="black" />
+                <rect x="500" width="500" height="80" stroke="yellow" stroke-widht="4" fill="green" opacity="0.5" />
+                <rect x="1000" width="500" height="120" stroke="yellow" stroke-widht="4" fill="blue" opacity="0.5" />
+                <rect x="1500" width="500" height="160" stroke="yellow" stroke-widht="4" fill="yellow" opacity="0.5" />
+                <rect x="1995" width="5" height="160" fill="black" />
+                <line x1="0" y1="160" x2="2000" y2="0" stroke="black" />
+
+                <rect x="1200" width="400" height="160" fill="gray" opacity="0.5" />
+
+            </svg>
+        </div>
+    </div>
+</body>
+
+</html>

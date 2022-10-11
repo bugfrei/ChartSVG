@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        .chartWrapper {
+            position: relative;
+        }
+
+        .chartWrapper>canvas {
+            position: absolute;
+            left: 0;
+            top: 0;
+            pointer-events: none;
+        }
+
+        .chartAreaWrapper {
+            width: 600px;
+            overflow-x: scroll;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="chartWrapper">
+        <div id="charts" class="chartAreaWrapper">
+            <!--
+            <svg width="2000" height="160">
+                <rect x="1" width="500" height="40" stroke="yellow" stroke-widht="4" fill="red" opacity="0.5" />
+                <rect x="0" width="5" height="160" fill="black" />
+                <rect x="500" width="500" height="80" stroke="yellow" stroke-widht="4" fill="green" opacity="0.5" />
+                <rect x="1000" width="500" height="120" stroke="yellow" stroke-widht="4" fill="blue" opacity="0.5" />
+                <rect x="1500" width="500" height="160" stroke="yellow" stroke-widht="4" fill="yellow" opacity="0.5" />
+                <rect x="1995" width="5" height="160" fill="black" />
+                <line x1="0" y1="160" x2="2000" y2="0" stroke="black" />
+
+                <rect x="1200" width="400" height="160" fill="gray" opacity="0.5" />
+
+            </svg>
+            -->
+        </div>
+    </div>
+</body>
+
+</html>
+<script defer>
+    var data = [];
+    for (var i = 0; i < 28800; i++)
+    {
+        data.push(Math.floor(Math.random() * 100));
+    }
+
+    // ----
+
+    var maxFreq = 32 / 60;
+    var actFreq = 32 / 60;
+
+    var x = 0;
+    var dataXY = data.map(v => [x += (maxFreq / actFreq), v]);
+
+    const container = document.getElementById('charts');
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', 10000);
+
+    container.appendChild(svg);
+
+    /*
+    var l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    l.setAttribute('x1', 0);
+    l.setAttribute('y1', 0);
+    l.setAttribute('x2', 100);
+    l.setAttribute('y2', 100);
+    l.setAttribute('stroke', 'blue');
+    l.setAttribute('stroke-width', 3);
+    svg.appendChild(l);
+    */
+
+    var pts = "";
+    dataXY.forEach((v) => pts += v[0] + "," + v[1] + " ");
+
+    console.log(pts);
+
+
+    var pl = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+
+    pl.setAttribute('points', pts.trim());
+    pl.setAttribute('stroke', 'black');
+    pl.setAttribute('stroke-width', 0.5);
+    pl.setAttribute('fill', 'none');
+    svg.appendChild(pl);
+
+    var r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    r.setAttribute('x', 2500);
+    r.setAttribute('y', 0);
+    r.setAttribute('width', 60);
+    r.setAttribute('height', '100%');
+    r.setAttribute('fill', '#FF00FF');
+    r.setAttribute('fill-opacity', 0.6);
+
+    svg.appendChild(r);
+
+</script>
