@@ -1,4 +1,15 @@
-const DEFAULT_ZOOM_FREQ = 1;
+const DEFAULT_ZOOM_FREQ = 1 * 64;
+const DIAGRAM_HEIGHT = 150;
+const SELECTION_COLOR = "#0000FF";
+const SELECTION_OPACITY = 0.5;
+const SELECTION_TITELCOLOR = "#FF0000";
+const SELECTION_TITLEOPACITY = 0.3;
+const SELECTION_ZOOMCOLOR = "#FFFFFF";
+const SELECTION_ZOOMOPACITY = 0.8;
+const SELECTION_NOTECOLOR = "#FFFFFF";
+const SELECTION_NOTEOPACITY = 0.8;
+const SELECTION_MIN_VALUES = 100; // Wenn eine Markierung sehr klein ist, wird dieser Wert als min. größe einer Markierung verwendet (ANZAHL DATENWERTE)
+const SELECTION_MIN_PIXEL = 20; // Wenn eine Markierung sehr klein ist, wird dieser Wert als min. größe einer Markierung verwendet (ANZAHL PIXEL)
 var chartManager;
 
 class ChartManager {
@@ -14,12 +25,189 @@ class ChartManager {
             clickNumber: 0,
             click1OffsetX: 0,
             click2OffsetX: 0,
-            clickChart: null
+            clickChart: null,
+            selectionRect: null,
+            selectionElements: [],
+            get left() {
+                return this.click1OffsetX < this.click2OffsetX ? this.click1OffsetX : this.click2OffsetX;
+            },
+            get right() {
+                return this.click1OffsetX < this.click2OffsetX ? this.click2OffsetX : this.click1OffsetX;
+            },
+            get width() {
+                return this.right - this.left;
+            },
+            removeSelectionRect() {
+                console.log("RemoveSel");
+                if (this.clickChart != null && this.selectionRect != null) {
+                    try {
+                        this.clickChart.svg.removeChild(this.selectionRect);
+                    }
+                    catch (e) { }
+                    this.selectionRect = null;
+                }
+                while (this.selectionElements.length > 0) {
+                    try {
+                        this.clickChart.svg.removeChild(this.selectionElements.pop());
+                    }
+                    catch (e) { }
+                }
+            },
+            addSelectionRect() {
+                this.removeSelectionRect();
+                this.selectionRect = createRect();
+                this.selectionRect.setAttribute('x', this.click1OffsetX);
+                this.selectionRect.setAttribute('y', 0);
+                this.selectionRect.setAttribute('width', 1);
+                this.selectionRect.setAttribute('height', DIAGRAM_HEIGHT);
+                this.selectionRect.setAttribute("fill", SELECTION_COLOR);
+                this.selectionRect.setAttribute("fill-opacity", SELECTION_OPACITY);
+                this.clickChart.svg.appendChild(this.selectionRect);
+            },
+            expandSelectionRect() {
+                if (this.selectionRect != null) {
+                    var x1 = this.click1OffsetX < this.click2OffsetX ? this.click1OffsetX : this.click2OffsetX;
+                    var x2 = this.click1OffsetX < this.click2OffsetX ? this.click2OffsetX : this.click1OffsetX;
+                    var difPixel = x2 - x1;
+                    var difValues = difPixel * chartManager.zoomFreq;
+                    if (difValues < SELECTION_MIN_VALUES) {
+                        // Zu kleiner Bereich, Bereich links und rechts auf SELECTION_MIN_VALUES erweitern
+                        var expandValues = SELECTION_MIN_VALUES - difValues;
+                        var expandPixel = expandValues / chartManager.zoomFreq;
+                        x1 -= expandPixel;
+                        x2 += expandPixel;
+                        this.click1OffsetX = x1;
+                        this.click2OffsetX = x2;
+                    }
+                    difPixel = x2 - x1;
+                    if (difPixel < SELECTION_MIN_PIXEL) {
+                        expandPixel = SELECTION_MIN_PIXEL - difPixel;
+                        x1 -= (expandPixel / 2);
+                        x2 += (expandPixel / 2);
+                        this.click1OffsetX = x1;
+                        this.click2OffsetX = x2;
+                    }
+
+                    this.selectionRect.setAttribute('x', x1);
+                    this.selectionRect.setAttribute('width', x2 - x1);
+                    // Titel
+                    let anchor = createAnchor();
+                    anchor.setAttribute('href', 'javascript:alert("huhu");');
+                    anchor.setAttribute('x', x1 + 10);
+                    anchor.setAttribute('y', 10);
+                    anchor.setAttribute('width', x2 - x1 - 20);
+                    anchor.setAttribute('height', 20);
+                    anchor.setAttribute('dest', "title");
+                    this.clickChart.svg.appendChild(anchor);
+
+                    let title = createRect();
+                    title.setAttribute('x', x1 + 10);
+                    title.setAttribute('y', 10);
+                    title.setAttribute('width', x2 - x1 - 20);
+                    title.setAttribute('height', 20);
+                    title.setAttribute('fill', SELECTION_TITELCOLOR);
+                    title.setAttribute('fill-opacity', SELECTION_TITLEOPACITY);
+                    title.setAttribute('dest', "title");
+
+                    let text = createText();
+                    text.setAttribute('x', x1 + 20);
+                    text.setAttribute('y', 25);
+                    text.setAttribute('dest', "title");
+                    this.clickChart.svg.appendChild(anchor);
+                    const time = dateFormat(chartManager.Time(x1), "HH:MM:SS");
+                    const seconds = chartManager.Seconds(x2 - x1);
+
+                    text.innerHTML = time + ` (${seconds} s)`;
+                    text.setAttribute('fill', 'black');
+
+                    //this.clickChart.svg.appendChild(title);
+                    anchor.appendChild(title);
+                    anchor.appendChild(text);
+                    this.selectionElements.push(anchor);
+
+                    // Zoom
+                    anchor = createAnchor();
+                    anchor.setAttribute('href', 'javascript:doZoom();');
+                    anchor.setAttribute('x', x1 + 10);
+                    anchor.setAttribute('y', DIAGRAM_HEIGHT - 80);
+                    anchor.setAttribute('width', x2 - x1 - 20);
+                    anchor.setAttribute('height', 20);
+                    anchor.setAttribute('dest', "title");
+                    this.clickChart.svg.appendChild(anchor);
+
+                    title = createRect();
+                    title.setAttribute('x', x1 + 10);
+                    title.setAttribute('y', DIAGRAM_HEIGHT - 80);
+                    title.setAttribute('width', x2 - x1 - 20);
+                    title.setAttribute('height', 20);
+                    title.setAttribute('fill', SELECTION_ZOOMCOLOR);
+                    title.setAttribute('fill-opacity', SELECTION_ZOOMOPACITY);
+                    title.setAttribute('dest', "title");
+
+                    text = createText();
+                    text.setAttribute('x', x1 + 20);
+                    text.setAttribute('y', DIAGRAM_HEIGHT - 65);
+                    text.setAttribute('dest', "title");
+                    this.clickChart.svg.appendChild(anchor);
+
+                    text.innerHTML = `Zoom`;
+                    text.setAttribute('fill', 'black');
+
+                    //this.clickChart.svg.appendChild(title);
+                    anchor.appendChild(title);
+                    anchor.appendChild(text);
+                    this.selectionElements.push(anchor);
+                    text.setAttribute('x', x1 + 10 + (x2 - x1 - 20) / 2 - (text.getBoundingClientRect().width / 2));
+
+                    // Note
+                    anchor = createAnchor();
+                    anchor.setAttribute('href', 'javascript:doNote();');
+                    anchor.setAttribute('x', x1 + 10);
+                    anchor.setAttribute('y', DIAGRAM_HEIGHT - 50);
+                    anchor.setAttribute('width', x2 - x1 - 20);
+                    anchor.setAttribute('height', 20);
+                    anchor.setAttribute('dest', "title");
+                    this.clickChart.svg.appendChild(anchor);
+
+                    title = createRect();
+                    title.setAttribute('x', x1 + 10);
+                    title.setAttribute('y', DIAGRAM_HEIGHT - 50);
+                    title.setAttribute('width', x2 - x1 - 20);
+                    title.setAttribute('height', 20);
+                    title.setAttribute('fill', SELECTION_NOTECOLOR);
+                    title.setAttribute('fill-opacity', SELECTION_NOTEOPACITY);
+                    title.setAttribute('dest', "title");
+
+                    text = createText();
+                    text.setAttribute('x', x1 + 20);
+                    text.setAttribute('y', DIAGRAM_HEIGHT - 35);
+                    text.setAttribute('dest', "title");
+                    this.clickChart.svg.appendChild(anchor);
+
+                    text.innerHTML = `Notiz`;
+                    text.setAttribute('fill', 'black');
+
+                    //this.clickChart.svg.appendChild(title);
+                    anchor.appendChild(title);
+                    anchor.appendChild(text);
+                    this.selectionElements.push(anchor);
+                    text.setAttribute('x', x1 + 10 + (x2 - x1 - 20) / 2 - (text.getBoundingClientRect().width / 2));
+                }
+            },
+            resizeSelectionRect(offsetX) {
+                if (this.selectionRect != null) {
+                    var x1 = this.click1OffsetX < offsetX ? this.click1OffsetX : offsetX;
+                    var x2 = this.click1OffsetX < offsetX ? offsetX : this.click1OffsetX;
+                    this.selectionRect.setAttribute('x', x1);
+                    this.selectionRect.setAttribute('width', x2 - x1);
+                }
+            }
         }
         const mainDIV = document.getElementById('chart');
         var wrapperDIV = createDIV();
         wrapperDIV.setAttribute('class', 'chartWrapper');
         mainDIV.appendChild(wrapperDIV);
+
         var areawrapperDIV = createDIV();
         areawrapperDIV.setAttribute('class', 'chartAreaWrapper');
         wrapperDIV.appendChild(areawrapperDIV);
@@ -36,7 +224,18 @@ class ChartManager {
     }
     get zoomFreq() { return this._zoom_freq; }
     set zoomFreq(zoomFreq) {
-        this._zoom_freq = zoomFreq;
+        if (zoomFreq >= 1) {
+            // Muss aufgerundet werden, da Werte > 1 ja besagen: Wieviele Werte entsprechen 1 Pixel
+            // 1.5 Werte = 1 Pixel geht ja nicht: 1. Wert, nicht >= 1.5 also addieren
+            //                                    2. Wert, ist   >= 1.5 also addieren und durchschnitt berechnen
+            this._zoom_freq = Math.ceil(zoomFreq);
+        }
+        else {
+            // Werte < 1 werden nicht gerundet, da diese dann bestimmen, wieviel Pixel sind 1 Wert
+            // 0.5: 1. Wert, ist >= 0.5, also addieren und durchschnitt (x / 1 = x)
+            // aber Schrittweite der Pixel sind 1 / 0.5 =  2, also 2 Pixel für diesen Wert 2, also 2 Pixel für diesen Wert
+            this._zoom_freq = zoomFreq;
+        }
         this.createAll();
     }
 
@@ -59,6 +258,7 @@ class ChartManager {
         newSVG.onmousemove = mouseMove;
         newSVG.onclick = mouseClick;
         newSVG.setAttribute('width', '50000');
+        newSVG.setAttribute('height', DIAGRAM_HEIGHT.toString());
         newDiv.appendChild(newSVG);
 
         var newChart = new Chart(this, newDiv, newSVG, this.json);
@@ -66,15 +266,42 @@ class ChartManager {
         return newChart;
     }
 
-    mouseMove(e)
-    {
+    mouseMove(e) {
         console.log(this.Time(e.offsetX));
         this.charts.forEach(c => c.setCursor(e.offsetX));
+        if (this.clickStatus.clickNumber == 1) {
+            this.clickStatus.resizeSelectionRect(e.offsetX);
+        }
     }
-    nouseClick(e)
-    {
+    mouseClick(e) {
+        const clickedChart = this.charts.find(c => c.svg == e.currentTarget);
+
+        if (this.clickStatus.clickNumber == 0) {
+            // First Click
+            this.clickStatus.removeSelectionRect();
+            this.clickStatus.clickNumber = 1;
+            this.clickStatus.click1OffsetX = e.offsetX;
+            this.clickStatus.clickChart = clickedChart;
+            this.clickStatus.addSelectionRect();
+        }
+        else if (this.clickStatus.clickNumber == 1) {
+            // Second Click
+            if (clickedChart == this.clickStatus.clickChart) {
+                this.clickStatus.clickNumber = 0;
+                this.clickStatus.click2OffsetX = e.offsetX;
+                this.clickStatus.expandSelectionRect();
+            }
+            else {
+                // Second click in another chart -> First click
+                this.clickStatus.removeSelectionRect();
+                this.clickStatus.clickNumber = 1;
+                this.clickStatus.click1OffsetX = e.offsetX;
+                this.clickStatus.clickChart = clickedChart;
+                this.clickStatus.addSelectionRect();
+            }
+        }
     }
-    
+
 
 
     createAll() {
@@ -82,13 +309,41 @@ class ChartManager {
     }
 }
 
-function mouseMove(e)
-{
+function doZoom() {
+    // Calculate new Zoom
+    const selectionPixel = chartManager.clickStatus.width;
+    const zoomXValuesFor1Pixel = chartManager.zoomFreq;
+    const selectionValues = selectionPixel * zoomXValuesFor1Pixel;
+
+    const clientWidth = chartManager.div.getBoundingClientRect().width;
+    const newZoom = selectionValues / clientWidth;
+
+    // Calculate new Position (scroll)
+    const newPos = chartManager.clickStatus.left * zoomXValuesFor1Pixel / newZoom;
+
+    chartManager.zoomFreq = newZoom;
+    chartManager.div.scroll(newPos, 0);
+    OUT(newZoom);
+}
+function doNote() {
+    alert("Note");
+}
+
+function OUT(t) {
+    document.getElementById("OUT").innerHTML = t;
+}
+
+function mouseMove(e) {
     chartManager.mouseMove(e);
 }
-function mouseClick(e)
-{
-    chartManager.mouseClick(e);
+function mouseClick(e) {
+    if (e.srcElement.getAttribute('dest') == "title") {
+        // Title clicked
+    }
+    else {
+        // Chart clicked
+        chartManager.mouseClick(e);
+    }
 }
 
 function createDIV() {
@@ -100,6 +355,15 @@ function createSVG() {
     return document.createElementNS('http://www.w3.org/2000/svg', 'svg');
 }
 
+function createText() {
+    return document.createElementNS('http://www.w3.org/2000/svg', 'text');
+}
+function createAnchor(attributes) {
+    return document.createElementNS('http://www.w3.org/2000/svg', 'a');
+}
+function createAnchor2() {
+    return document.createElement('a');
+}
 function createLine() {
     return document.createElementNS('http://www.w3.org/2000/svg', 'line');
 }
@@ -111,6 +375,38 @@ function createPolyline() {
 }
 function createPath() {
     return document.createElementNS('http://www.w3.org/2000/svg', 'path');
+}
+function createButton() {
+    return document.createElement('button');
+}
+function dateFormat(date, format) {
+    /* Formats:
+        dd      Day     like 05
+        d       Day     like 5
+        mm      Month   like 09
+        m       Month   like 9
+        yy      Year    like 22
+        yyyy    Year    like 2022
+        hh      Hour    like 07
+        h       Hour    like 7
+        HH      Hour    like 19
+        MM      Minute  like 07
+        M       Minute  like 7
+        SS      Second  like 07
+        S       Second  like 7
+    */
+
+    var res = format;
+    res = res.replace('yyyy', date.getFullYear());
+    res = res.replace('dd', ('0' + date.getDate()).slice(-2));
+    res = res.replace('mm', ('0' + (date.getMonth() + 1)).slice(-2));
+    res = res.replace('yy', ('' + date.getFullYear()).slice(-2));
+    res = res.replace('hh', ('0' + date.getHours()).slice(-2));
+    res = res.replace('HH', ('0' + date.getHours()).slice(-2));
+    res = res.replace('MM', ('0' + date.getMinutes()).slice(-2));
+    res = res.replace('SS', ('0' + date.getSeconds()).slice(-2));
+
+    return res;
 }
 class Chart {
     constructor(manager, div, svg, json) {
@@ -138,8 +434,7 @@ class Chart {
         this.chartLines.splice(0, this.chartLines.length);
     }
 
-    setCursor(x)
-    {
+    setCursor(x) {
         this.cursorLine.setAttribute('x', x);
     }
 
@@ -151,21 +446,30 @@ class Chart {
         cursorLine.setAttribute('x', 0);
         cursorLine.setAttribute('y', 0);
         cursorLine.setAttribute('width', 1);
-        cursorLine.setAttribute('height', 160);
+        cursorLine.setAttribute('height', DIAGRAM_HEIGHT);
         cursorLine.setAttribute("fill", "#000000");
         this.svg.appendChild(cursorLine);
         this.cursorLine = cursorLine;
-        
+
+        // xStep: Schrittweite für 1 Messwert. Ist der Zoom >= 1 (d.h. exakt 1 oder mehr Datenwerte liefern 1 Pixel im Diagramm)
+        //        dann ist xStep immer 1 (X Werte = 1 Pixel).
+        //        Ist der Zoom < 1, dann entspricht immer 1 Wert mehr als 1 Pixel.
+        //        Bei z.B. Zoom = 0.5, sind 0.5 Datenpunkte = 1 Pixel, 1 Datenpunkt = 2 Pixel (1 / 0.5 = 2)
+        const xStep = chartManager.zoomFreq >= 1 ? 1 : 1 / chartManager.zoomFreq;
+
         var maxWidth = 0;
         // Dann neu zeichnen
         this.chartLines.forEach(line => {
+            const range = line.data.valueMax - line.data.valueMin;   // 65535
+            const yRange = DIAGRAM_HEIGHT / range;         // 1 Messwert = yRange Pixel
+            const yOffset = line.data.valueMin * yRange * -1;   // Addierung damit min. Value = 0 ist und nicht -75
             if (line.data.usePath) {
                 console.log('[INFO] Use Path');
-                
+
                 this.chartLines.forEach(line => {
                     var path = createPath();
                     var x = 1;
-                    var pth = "M1,150";
+                    var pth = `M1,${DIAGRAM_HEIGHT}`;
                     if (Array.isArray(line.data)) {
                         line.data.forEach(y => { pth += `C${x++} ${y} ` })
                     }
@@ -174,10 +478,11 @@ class Chart {
                     }
                     else {
                         const arr = line.data.dataFunction(line.data, this.chartManager.zoomFreq, this.chartManager.maxFreq);
+                        // (e => Math.round(e * yRange + yOffset));
                         for (var p of arr) {
-                            x++;
+                            x += xStep;
                             if (p != undefined && p != NaN) {
-                                pth += `L${x},${(150 - p)}`;
+                                pth += `L${x},${(DIAGRAM_HEIGHT - (p * yRange + yOffset))}`;
                             }
                         }
                     }
@@ -204,7 +509,7 @@ class Chart {
                     }
                     else {
                         var arr = line.data.dataFunction(line.data, this.chartManager.zoomFreq, this.chartManager.maxFreq);
-                        arr.forEach(y => { pts += `${x++},${150-y} ` })
+                        arr.forEach(y => { pts += `${x += xStep},${DIAGRAM_HEIGHT - (y * yRange + yOffset)} ` })
                     }
                     polyLine.setAttribute('points', pts.trim());
                     polyLine.setAttribute('stroke', `#${line.color}`);
@@ -261,10 +566,12 @@ async function start() {
     var chart3 = chartManager.addChart();
     chart3.addLine("0000FF", "OxSaturation");
     var chart4 = chartManager.addChart();
-    chart4.addLine("FF0000", "Breathing");
-    chartManager.createAll();
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    chart4.clearLines();
+    if (false) {
+        chart4.addLine("FF0000", "Breathing");
+        chartManager.createAll();
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        chart4.clearLines();
+    }
     chart4.addLine("FF0000", "Pulse");
 
     chartManager.createAll();
@@ -276,35 +583,31 @@ const dataManager =
     dataInformation: [
         ["Breathing", {
             "dataFunction": function recalc(dataInformation, factor, maxFreq) {
-                var x = 0;
                 if (factor == 0 || dataInformation.freq == 0) {
                     // Alles übergeben wenn kein Faktor oder Frequenz vorhanden
-                    return dataInformation.data.map(e => Math.round((e + 1000) / 14));
-                    // return dataInformation.data.map(e => ` ${x++},${150 - ((e + 1000) / 14)}`).toString().trim()
+                    return dataInformation.data;
                 }
+                // Interpolierung zur y-Größe der Diagramme erfolgt beim zeichnen
                 var newData = dataManager.simpleAvg(dataInformation.data, factor, maxFreq);
-                return newData.map(e => Math.round((e + 1000) / 14));
-                // return newData.map(e => ` ${x++},${150 - ((e + 1000) / 14)}`).toString().trim()
+                return newData;
             },
-            "valueMin": -32768,
-            "valueMax": 32767,
+            "valueMin": -1000,
+            "valueMax": 1000,
             "usePath": false,
             "zeroLine": true
         }],
         ["MovementX", {
             "dataFunction": function recalc(dataInformation, factor, maxFreq) {
-                var x = 0;
                 if (factor == 0 || dataInformation.freq == 0) {
                     // Alles übergeben wenn kein Faktor oder Frequenz vorhanden
-                    return dataInformation.data.map(e => Math.round((e + 1000) / 14));
-                    // return dataInformation.data.map(e => ` ${x++}${150 - ((e + 1000) / 14)}`).toString().trim()
+                    return dataInformation.data;
                 }
+                // Interpolierung zur y-Größe der Diagramme erfolgt beim zeichnen
                 var newData = dataManager.simpleAvg(dataInformation.data, factor, maxFreq);
-                return newData.map(e => Math.round((e + 1000) / 14));
-                // return newData.map(e => ` ${x++},${150 - ((e + 1000) / 14)}`).toString().trim()
+                return newData;
             },
-            "valueMin": -32768,
-            "valueMax": 32767,
+            "valueMin": -1000,
+            "valueMax": 1000,
             "usePath": true,
             "zeroLine": true
         }],
@@ -313,15 +616,14 @@ const dataManager =
                 var x = 0;
                 if (factor == 0 || dataInformation.freq == 0) {
                     // Alles übergeben wenn kein Faktor oder Frequenz vorhanden
-                    return dataInformation.data.map(e => Math.round((e + 1000) / 14));
-                    // return dataInformation.data.map(e => ` ${x++},${150 - ((e + 1000) / 14)}`).toString().trim()
+                    return dataInformation.data;
                 }
+                // Interpolierung zur y-Größe der Diagramme erfolgt beim zeichnen
                 var newData = dataManager.simpleAvg(dataInformation.data, factor, maxFreq);
-                return newData.map(e => Math.round((e + 1000) / 14));
-                // return newData.map(e => ` ${x++},${150 - ((e + 1000) / 14)}`).toString().trim()
+                return newData;
             },
-            "valueMin": -32768,
-            "valueMax": 32767,
+            "valueMin": -1000,
+            "valueMax": 1000,
             "usePath": true,
             "zeroLine": true
         }],
@@ -330,15 +632,14 @@ const dataManager =
                 var x = 0;
                 if (factor == 0 || dataInformation.freq == 0) {
                     // Alles übergeben wenn kein Faktor oder Frequenz vorhanden
-                    return dataInformation.data.map(e => Math.round((e + 1000) / 14));
-                    // return dataInformation.data.map(e => ` ${x++},${150 - ((e + 1000) / 14)}`).toString().trim()
+                    return dataInformation.data;
                 }
+                // Interpolierung zur y-Größe der Diagramme erfolgt beim zeichnen
                 var newData = dataManager.simpleAvg(dataInformation.data, factor, maxFreq);
-                return newData.map(e => Math.round((e + 1000) / 14));
-                // return newData.map(e => ` ${x++},${150 - ((e + 1000) / 14)}`).toString().trim()
+                return newData;
             },
-            "valueMin": -32768,
-            "valueMax": 32767,
+            "valueMin": -1000,
+            "valueMax": 1000,
             "usePath": true,
             "zeroLine": true
         }],
@@ -347,16 +648,14 @@ const dataManager =
                 var x = 0;
                 if (factor == 0 || dataInformation.freq == 0) {
                     // Alles übergeben wenn kein Faktor oder Frequenz vorhanden
-                    return dataInformation.data.map(e => Math.round(e * 15));
-                    // return dataInformation.data.map(e => ` ${x++},${150 - (e == undefined ? 0 : e * 15)}`).toString().trim()
+                    return dataInformation.data;
                 }
-
+                // Interpolierung zur y-Größe der Diagramme erfolgt beim zeichnen
                 var newData = dataManager.simpleAvg(dataInformation.data, factor, maxFreq);
-                return newData.map(e => Math.round(e * 15));
-                // return newData.map(e => ` ${x++},${150 - (e * 15)}`).toString().trim()
+                return newData;
             },
             "valueMin": 0,
-            "valueMax": 127,
+            "valueMax": 5,
             "usePath": true,
             "zeroLine": false
         }],
@@ -365,15 +664,14 @@ const dataManager =
                 var x = 0;
                 if (factor == 0 || dataInformation.freq == 0) {
                     // Alles übergeben wenn kein Faktor oder Frequenz vorhanden
-                    return dataInformation.data.map(e => Math.round(e * 15));
-                    // return dataInformation.data.map(e => ` ${x++},${150 - (e == undefined ? 0 : e * 15)}`).toString().trim()
+                    return dataInformation.data;
                 }
+                // Interpolierung zur y-Größe der Diagramme erfolgt beim zeichnen
                 var newData = dataManager.simpleAvg(dataInformation.data, factor, maxFreq);
-                return newData.map(e => Math.round(e * 15));
-                // return newData.map(e => ` ${x++},${150 - (e * 15)}`).toString().trim()
+                return newData;
             },
             "valueMin": 0,
-            "valueMax": 255,
+            "valueMax": 10,
             "usePath": false,
             "zeroLine": false
         }]
@@ -383,7 +681,7 @@ const dataManager =
         var sum = 0;
         var valCount = 0;
 
-        const anz = factor; // Faktor (in Bezugsnehmend zur Frequenz; 1 = jeden Messwert (1:1), 2 )= jeden Zweiten (1:2))
+        const anz = factor; // Faktor (in Bezugsnehmend zur Frequenz; factor = 1 => jeden Messwert (1:1), factor = 2 => jeden Zweiten (1:2))
         var newData = [];
         console.log("[INFO] simpleAvg data length: " + data.length);
         for (var d of data) {
