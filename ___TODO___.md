@@ -14,6 +14,10 @@
 
 - [ ] Verschieben von Start/Ende der Markierungen
 - [ ] Bearbeiten von Markierungen (Notizeingabe, Farbe/Typ; valid (wichtig bei ML Markierungen); löschen)
+- [ ] Esc für Abbruch der Selektio- [ ] Zoom Buttons (mit 3-4 Standard-Zoom Faktoren)n
+
+
+
 
 
 # Ideen
