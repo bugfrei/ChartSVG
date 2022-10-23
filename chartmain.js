@@ -10,6 +10,15 @@ const SELECTION_NOTECOLOR = "#FFFFFF";
 const SELECTION_NOTEOPACITY = 0.8;
 const SELECTION_MIN_VALUES = 100; // Wenn eine Markierung sehr klein ist, wird dieser Wert als min. größe einer Markierung verwendet (ANZAHL DATENWERTE)
 const SELECTION_MIN_PIXEL = 20; // Wenn eine Markierung sehr klein ist, wird dieser Wert als min. größe einer Markierung verwendet (ANZAHL PIXEL)
+const SELECTION_DIALOG_BACKGROUNDCOLOR = "#DDDDDD";
+const SELECTION_DIALOG_WIDTH = "200"; // px
+const SELECTION_DIALOG_HEIGHT = "300"; // px
+const SELECTION_DIALOG_BORDERCOLOR = "black";
+const SELECTION_DIALOG_BORDERWIDTH = "2"; // px
+const MARK_SOURCE_DOC = "A";
+const MARK_SOURCE_ML = "M";
+const MARK_OPACITY = 0.5;
+
 var chartManager;
 
 class ChartManager {
@@ -21,6 +30,9 @@ class ChartManager {
         this._zoom_freq = DEFAULT_ZOOM_FREQ;
         this.charts = [];
         this._maxFreq = 0;
+        this._dialogNr = 0;         // Fortlaufende Nummer zur identifikation neuer Dialoge
+        this._dialogs = [];         // Auflistung der Dialoge
+        this._marks = [];           // Auflistung der Markierungen (egal ob Arzt oder ML)
         this._clickStatus = {
             clickNumber: 0,
             click1OffsetX: 0,
@@ -69,11 +81,11 @@ class ChartManager {
                     var x1 = this.click1OffsetX < this.click2OffsetX ? this.click1OffsetX : this.click2OffsetX;
                     var x2 = this.click1OffsetX < this.click2OffsetX ? this.click2OffsetX : this.click1OffsetX;
                     var difPixel = x2 - x1;
-                    var difValues = difPixel * chartManager.zoomFreq;
+                    var difValues = chartManager.calcRowNumberFromSelectionPosition(difPixel);
                     if (difValues < SELECTION_MIN_VALUES) {
                         // Zu kleiner Bereich, Bereich links und rechts auf SELECTION_MIN_VALUES erweitern
                         var expandValues = SELECTION_MIN_VALUES - difValues;
-                        var expandPixel = expandValues / chartManager.zoomFreq;
+                        var expandPixel = chartManager.calcPixelFromRowNumber(expandValues);
                         x1 -= expandPixel;
                         x2 += expandPixel;
                         this.click1OffsetX = x1;
@@ -117,7 +129,7 @@ class ChartManager {
                     const time = dateFormat(chartManager.Time(x1), "HH:MM:SS");
                     const seconds = chartManager.Seconds(x2 - x1);
 
-                    text.innerHTML = time + ` (${seconds} s)`;
+                    text.innerHTML = time + ` (${seconds} s)`; // TODO i18n Zeitformat!
                     text.setAttribute('fill', 'black');
 
                     //this.clickChart.svg.appendChild(title);
@@ -150,7 +162,7 @@ class ChartManager {
                     text.setAttribute('dest', "title");
                     this.clickChart.svg.appendChild(anchor);
 
-                    text.innerHTML = `Zoom`;
+                    text.innerHTML = `Zoom`;  // TODO i18n
                     text.setAttribute('fill', 'black');
 
                     //this.clickChart.svg.appendChild(title);
@@ -160,8 +172,11 @@ class ChartManager {
                     text.setAttribute('x', x1 + 10 + (x2 - x1 - 20) / 2 - (text.getBoundingClientRect().width / 2));
 
                     // Note
+                    var yPos = this.mouseData.clientY;
+                    var xPos = this.mouseData.clientX;
+                    //var yPos = this.clickChart.svg.parentElement.offsetTop + this.clickChart.svg.parentElement.parentElement.parentElement.offsetTop + DIAGRAM_HEIGHT;
                     anchor = createAnchor();
-                    anchor.setAttribute('href', 'javascript:doNote();');
+                    anchor.setAttribute('href', `javascript:doNote(${xPos}, ${yPos});`);
                     anchor.setAttribute('x', x1 + 10);
                     anchor.setAttribute('y', DIAGRAM_HEIGHT - 50);
                     anchor.setAttribute('width', x2 - x1 - 20);
@@ -184,7 +199,7 @@ class ChartManager {
                     text.setAttribute('dest', "title");
                     this.clickChart.svg.appendChild(anchor);
 
-                    text.innerHTML = `Notiz`;
+                    text.innerHTML = `Markierung`; // TODO i18n
                     text.setAttribute('fill', 'black');
 
                     //this.clickChart.svg.appendChild(title);
@@ -203,6 +218,28 @@ class ChartManager {
                 }
             }
         }
+        this.markTypes = [
+            {
+                text: "Normal",     // TODO i18n
+                color: "#00FF00"
+            },
+            {
+                text: "Aboe",       // TODO i18n
+                color: "#FF0000",
+            },
+            {
+                text: "Auffällig",  // TODO i18n
+                color: "#0000FF"
+            },
+            {
+                text: "Ungültig",   // TODO i18n
+                color: "#555555"
+            },
+            {
+                text: "Sonstiges",  // TODO i18n
+                color: "#FFFF00"
+            }
+        ]
         const mainDIV = document.getElementById('chart');
         var wrapperDIV = createDIV();
         wrapperDIV.setAttribute('class', 'chartWrapper');
@@ -212,6 +249,29 @@ class ChartManager {
         areawrapperDIV.setAttribute('class', 'chartAreaWrapper');
         wrapperDIV.appendChild(areawrapperDIV);
         this.div = areawrapperDIV;
+    }
+
+    calcRowNumberFromSelectionPosition(pixelPosition) {
+        return pixelPosition * this.zoomFreq;
+    }
+    calcPixelFromRowNumber(rowNumber) {
+        return rowNumber / this.zoomFreq;
+    }
+
+
+    nextDialogNr() {
+        this._dialogNr++;
+        return this._dialogNr;
+    }
+
+    newDialog(x, y, x1, x2, svg) {
+        var dialog = new SelectionDialog(x, y, x1, x2, svg);
+        this._dialogs.push(dialog);
+        return dialog;
+    }
+
+    dialogFromNr(nr) {
+        return this._dialogs.find(d => d.Nr == nr);
     }
 
     get clickStatus() { return this._clickStatus; }
@@ -267,7 +327,7 @@ class ChartManager {
     }
 
     mouseMove(e) {
-        console.log(this.Time(e.offsetX));
+        //console.log(this.Time(e.offsetX));
         this.charts.forEach(c => c.setCursor(e.offsetX));
         if (this.clickStatus.clickNumber == 1) {
             this.clickStatus.resizeSelectionRect(e.offsetX);
@@ -289,6 +349,7 @@ class ChartManager {
             if (clickedChart == this.clickStatus.clickChart) {
                 this.clickStatus.clickNumber = 0;
                 this.clickStatus.click2OffsetX = e.offsetX;
+                this.clickStatus.mouseData = e;
                 this.clickStatus.expandSelectionRect();
             }
             else {
@@ -306,6 +367,7 @@ class ChartManager {
 
     createAll() {
         this.charts.forEach(c => c.drawLines());
+        this._marks.forEach(m => { m.needUpdate = true; m.create(); })
     }
 }
 
@@ -325,8 +387,9 @@ function doZoom() {
     chartManager.div.scroll(newPos, 0);
     OUT(newZoom);
 }
-function doNote() {
-    alert("Note");
+function doNote(x, y) {
+    var svg = chartManager.clickStatus.clickChart.svg;
+    var newDialog = chartManager.newDialog(x, y, chartManager.clickStatus.click1OffsetX, chartManager.clickStatus.click2OffsetX, svg);
 }
 
 function OUT(t) {
@@ -349,6 +412,9 @@ function mouseClick(e) {
 function createDIV() {
     //return document.createElementNS('http://www.w3.org/2000/div', 'div');
     return document.createElement('div');
+}
+function createElement(el) {
+    return document.createElement(el);
 }
 
 function createSVG() {
@@ -727,6 +793,234 @@ const dataManager =
         const sigNr = re.exec(Object.entries(this.json.header).filter(e => e[1] == sigName)[0][0])[0];
         return Object.entries(dataManager.json.header).find(f => f[0] == `Freq${sigNr}`)[1];
     }
+}
+
+class SelectionDialog {
+    constructor(x, y, x1, x2, svg) {
+        this._nr = chartManager.nextDialogNr();
+        this.selectionStart = x1 < x2 ? x1 : x2;
+        this.selectionEnd = x1 < x2 ? x2 : x1;
+        this.svg = svg;
+
+        this.rowStart = chartManager.calcRowNumberFromSelectionPosition(this.selectionStart);
+        this.rowEnd = chartManager.calcRowNumberFromSelectionPosition(this.selectionEnd);
+        this.create(x, y);
+    }
+
+    get Nr() { return this._nr; }
+    get type() {
+        return this.select_typ.options[this.select_typ.selectedIndex].value;
+    }
+    get color() {
+        return this.input_color.value;
+    }
+    get note() {
+        return this.textarea_note.value;
+    }
+    create(x, y) {
+        const parentDIV = chartManager.div;
+
+        this.div = createDIV();
+        var left = x;
+        var top = y;
+
+
+        var time1 = dateFormat(chartManager.Time(this.selectionStart), "HH:MM:SS");
+        var time2 = dateFormat(chartManager.Time(this.selectionEnd), "HH:MM:SS");
+        var timeRange = `${time1} - ${time2}`; // TODO i18n
+
+        var sec = chartManager.Seconds(this.selectionEnd - this.selectionStart);
+        var secDate = new Date(2022, 1, 1, 0, 0, sec);
+
+
+        var timeDiff = dateFormat(secDate, "HH:MM:SS");             // TODO i18n
+
+        // DIV (Rahmen)
+        this.div.setAttribute("style", `position:absolute;left:${left}px;top:${top}px;border-width:${SELECTION_DIALOG_BORDERWIDTH}px;border-color:${SELECTION_DIALOG_BORDERCOLOR};border-style: solid;background: ${SELECTION_DIALOG_BACKGROUNDCOLOR}; width: ${SELECTION_DIALOG_WIDTH}px; height: ${SELECTION_DIALOG_HEIGHT}px;`);
+        parentDIV.appendChild(this.div);
+
+        // Tabelle für Information
+        const table = createElement("table");
+        this.div.appendChild(table);
+        var tr = createElement("tr");
+        table.appendChild(tr);
+        // Zeile: Von/Bis
+        var td = createElement("td");
+        td.innerHTML = "Von/Bis:"; // TODO i18n
+        tr.appendChild(td);
+
+        td = createElement("td");
+        td.innerHTML = timeRange;
+        tr.appendChild(td);
+
+        tr = createElement("tr");
+        table.appendChild(tr);
+
+        // Zeile: Dauer
+        td = createElement("td");
+        td.innerHTML = "Dauer:"; // TODO i18n
+        tr.appendChild(td);
+
+        td = createElement("td");
+        td.innerHTML = timeDiff;
+        tr.appendChild(td);
+
+        // ------------------------------ 
+        var hr = createElement("hr");
+        this.div.appendChild(hr);
+
+        // Notiz
+        var span = createElement("span");
+        span.setAttribute("style", "margin-left:5px;");
+        span.innerHTML = "Notiz:"; // TODO i18n
+        this.div.appendChild(span);
+
+        this.textarea_note = createElement("textarea");
+        this.textarea_note.setAttribute("id", "text");
+        this.textarea_note.setAttribute("style", `width:${SELECTION_DIALOG_WIDTH - 15}px;margin-left: 5px;height:80px;`);
+        this.div.appendChild(this.textarea_note);
+
+        // Typ
+        span = createElement("span");
+        span.setAttribute("style", "margin-left:5px;");
+        span.innerHTML = "Typ:"; // TODO i18n
+        this.div.appendChild(span);
+
+        this.select_typ = createElement("select");
+        this.select_typ.setAttribute("id", "typ");
+        this.select_typ.setAttribute("style", `width:${SELECTION_DIALOG_WIDTH - 9}px;margin-left:5px;`);
+        this.select_typ.setAttribute("onchange", `typSelected(this, ${this.Nr});`);
+
+        var option;
+        chartManager.markTypes.forEach(t => {
+            option = createElement("option");
+            option.setAttribute("color", t.color);
+            option.innerHTML = t.text;
+            this.select_typ.options.add(option);
+        })
+        this.div.appendChild(this.select_typ);
+
+        // Farbe
+        span = createElement("span");
+        span.setAttribute("style", "margin-left:5px;");
+        span.innerHTML = "Farbe:"; // TODO i18n
+        this.div.appendChild(span);
+
+        this.input_color = createElement("input");
+        this.input_color.setAttribute("type", "color");
+        this.input_color.setAttribute("id", "color");
+        this.input_color.setAttribute("style", `width: ${SELECTION_DIALOG_WIDTH - 9}px;margin-left:5px;`);
+        this.div.appendChild(this.input_color);
+
+        // ------------------------------ 
+        hr = createElement("hr");
+        this.div.appendChild(hr);
+
+        // Erstellen-Button
+        var input = createElement("input");
+        input.setAttribute("type", "button");
+        input.setAttribute("id", "create");
+        input.setAttribute("style", `margin-left:5px;`);
+        input.setAttribute("onclick", `createMark(${this.Nr});`);
+        input.value = "Erstellen"; // TODO i18n
+        this.div.appendChild(input);
+
+        // Abbruch-Button
+        input = createElement("input");
+        input.setAttribute("type", "button");
+        input.setAttribute("id", "cancel");
+        input.setAttribute("style", `float:right;margin-right:5px;`);
+        input.setAttribute("onclick", `cancelMark(${this.Nr});`);
+        input.value = "Abbruch"; // TODO i18n
+        this.div.appendChild(input);
+
+        const sel = this.select_typ;
+        this.input_color.value = sel.options[sel.selectedIndex].getAttribute("color");
+    }
+}
+
+class Mark {
+    constructor(note, color, type, valid, svg, source, rowStart, rowEnd) {
+        this.note = note;
+        this.color = color;
+        this.type = type;
+        this.valid = valid;
+        this.svg = svg;
+        this.rowStart = rowStart;
+        this.rowEnd = rowEnd;
+        this.source = source;  // A für Arzt, M für ML
+        this.needUpdate = true; // Flag das gesetzt wird, wenn create die Markierung erstellen oder updaten muss
+
+        this.create();
+    }
+
+    create() {
+        var rect = this._rect;
+        if (!rect) {
+            rect = createRect();
+            var x = chartManager.calcPixelFromRowNumber(this.rowStart)
+            rect.setAttribute('x', x);
+            rect.setAttribute('y', 0);
+            var width = this.rowEnd - this.rowStart;
+            rect.setAttribute('width', chartManager.calcPixelFromRowNumber(width));
+            rect.setAttribute('height', DIAGRAM_HEIGHT);
+            rect.setAttribute("fill", this.color);
+            rect.setAttribute("fill-opacity", MARK_OPACITY);
+            this.svg.appendChild(rect);
+            this.rect = rect;
+
+            var time1 = dateFormat(chartManager.Time(this.rowStart), "HH:MM:SS");
+            var time2 = dateFormat(chartManager.Time(this.rowEnd), "HH:MM:SS");
+            var timeRange = `${time1} - ${time2}`; // TODO i18n
+
+            var sec = chartManager.Seconds(this.rowEnd - this.rowStart);
+            var secDate = new Date(2022, 1, 1, 0, 0, sec);
+            var timeDiff = dateFormat(secDate, "HH:MM:SS");             // TODO i18n
+
+            let text = createText();
+            text.setAttribute('x', x + 20);
+            text.setAttribute('y', 25);
+            text.innerHTML = timeRange; // TODO i18n Zeitformat!
+            text.setAttribute('fill', 'black');
+            this.svg.appendChild(text);
+
+            text = createText();
+            text.setAttribute('x', x + 20);
+            text.setAttribute('y', 45);
+            text.innerHTML = "Dauer: " + timeDiff + ")"; // TODO i18n Zeitformat!
+            text.setAttribute('fill', 'black');
+            this.svg.appendChild(text);
+
+            text = createText();
+            text.setAttribute('x', x + 20);
+            text.setAttribute('y', 65);
+            text.innerHTML = this.type; // TODO i18n Zeitformat!
+            text.setAttribute('fill', 'black');
+            this.svg.appendChild(text);
+
+
+            chartManager.clickStatus.removeSelectionRect();
+        }
+    }
+
+}
+
+function typSelected(obj, nr) {
+    const dialog = chartManager.dialogFromNr(nr);
+    const sel = dialog.select_typ;
+    dialog.input_color.value = sel.options[sel.selectedIndex].getAttribute("color");
+}
+function createMark(nr) {
+    const dialog = chartManager.dialogFromNr(nr);
+    const svg = dialog.svg;
+    const mark = new Mark(dialog.note, dialog.color, dialog.type, true, svg, MARK_SOURCE_DOC, dialog.rowStart, dialog.rowEnd);
+
+    chartManager._marks.push(mark);
+    chartManager.div.removeChild(dialog.div);
+}
+function cancelMark(nr) {
+    const dialog = chartManager.dialogFromNr(nr);
+    chartManager.div.removeChild(dialog.div);
 }
 
 

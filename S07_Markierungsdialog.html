@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <input type="button" value="show" onclick="showDialog();" />
+    <div id="dialog" style="display: none;">
+        <dialog open>
+            <form>
+                <input id="btn" type="button" value="click mich" onclick="buttonClicked();" /><br />
+                <label for="btn">Button:</label>
+                <label for="farben">Farbe wählen:</label>
+                <label for="text">Bemerkung eingeben:</label>
+            </form>
+        </dialog>
+    </div>
+
+    <div
+        style="position: absolute;left: 000px; top: 60px;border-width:2px; border-color: black; border-style: solid; background: #DDDDDD; width: 200px; height: 300px;">
+        <table>
+            <tr>
+                <td>Von/Bis:</td>
+                <td>22:33:44 - 22:33:55</td>
+            </tr>
+            <tr>
+                <td>Dauer:</td>
+                <td>00:00:10</td>
+            </tr>
+        </table>
+        <hr />
+        <span style="margin-left: 5px;">Notiz:</span>
+        <textarea id="text" style="width:185px; margin-left: 5px; height:80px;"></textarea>
+        <span style="margin-left: 5px;">Typ:</span>
+        <select id="typ" style="width:191px; margin-left: 5px;" onchange="farbenSelected(this, 'demo');">
+            <datalist>
+                <option color="#FF0000">Abnoe</option>
+                <option color="#00FF00">Normal</option>
+                <option color="#0000FF">Auffällig</option>
+            </datalist>
+        </select>
+        <span style="margin-left: 5px;">Farbe:</span>
+        <input type="color" id="color" style="width:191px; margin-left:5px;" />
+        <hr />
+        <input type="button" value="Erstellen" style="margin-left:5px;" onclick="erstellen();" />
+        <input type="button" value="Abbruch" style="float: right; margin-right:5px;" onclick="abbruch();" />
+
+
+
+
+
+
+
+
+    </div>
+</body>
+
+</html>
+<script>
+    function buttonClicked() {
+        var sel = document.getElementById("farben");
+        var idx = sel.selectedIndex;
+        var opt = sel.options[idx];
+        var txt = opt.text;
+        var col = opt.getAttribute("color");
+
+        var text = document.getElementById("text");
+        var bem = text.value;
+
+        console.log(bem);
+        ;
+    }
+    function farbenSelected(obj, tag) {
+        console.log(tag);
+        console.log(obj);
+        var idx = obj.selectedIndex;
+        var opt = obj.options[idx];
+        var txt = opt.text;
+        var col = opt.getAttribute("color");
+
+        const colPicker = document.getElementById("color");
+        colPicker.value = col;
+        ;
+    }
+    function showDialog() {
+        document.getElementById("dialog").style = "display: block;";
+    }
+    showDialog();
+
+    const colPick = document.getElementById("color");
+    const type = document.getElementById("typ");
+    colPick.value = type.options[type.selectedIndex].getAttribute("color");
+</script>
