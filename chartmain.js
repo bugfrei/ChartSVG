@@ -11,13 +11,17 @@ const SELECTION_NOTEOPACITY = 0.8;
 const SELECTION_MIN_VALUES = 100; // Wenn eine Markierung sehr klein ist, wird dieser Wert als min. größe einer Markierung verwendet (ANZAHL DATENWERTE)
 const SELECTION_MIN_PIXEL = 20; // Wenn eine Markierung sehr klein ist, wird dieser Wert als min. größe einer Markierung verwendet (ANZAHL PIXEL)
 const SELECTION_DIALOG_BACKGROUNDCOLOR = "#DDDDDD";
-const SELECTION_DIALOG_WIDTH = "200"; // px
+const SELECTION_DIALOG_WIDTH = "250"; // px
 const SELECTION_DIALOG_HEIGHT = "300"; // px
 const SELECTION_DIALOG_BORDERCOLOR = "black";
 const SELECTION_DIALOG_BORDERWIDTH = "2"; // px
+const MARK_DRAGBOX_COLOR = "#000000";
+const MARK_DRAGBOX_OPACITY = 0.2;
+const MARK_DRAGBOX_WIDTH = 20;
 const MARK_SOURCE_DOC = "A";
 const MARK_SOURCE_ML = "M";
 const MARK_OPACITY = 0.5;
+
 
 var chartManager;
 
@@ -33,6 +37,17 @@ class ChartManager {
         this._dialogNr = 0;         // Fortlaufende Nummer zur identifikation neuer Dialoge
         this._dialogs = [];         // Auflistung der Dialoge
         this._marks = [];           // Auflistung der Markierungen (egal ob Arzt oder ML)
+        this._resizeData = {
+            dialog: null,
+            mark: null,
+            oldStart: 0,
+            oldEnd: 0,
+            anchorLeft: null,
+            anchorRight: null,
+            nr: 0,
+            state: 0,
+            offsetX: 0
+        };
         this._clickStatus = {
             clickNumber: 0,
             click1OffsetX: 0,
@@ -224,7 +239,7 @@ class ChartManager {
                 color: "#00FF00"
             },
             {
-                text: "Aboe",       // TODO i18n
+                text: "Apnoe",       // TODO i18n
                 color: "#FF0000",
             },
             {
@@ -241,6 +256,7 @@ class ChartManager {
             }
         ]
         const mainDIV = document.getElementById('chart');
+        window.onkeydown = keyDown;
         var wrapperDIV = createDIV();
         wrapperDIV.setAttribute('class', 'chartWrapper');
         mainDIV.appendChild(wrapperDIV);
@@ -266,12 +282,31 @@ class ChartManager {
 
     newDialog(x, y, x1, x2, svg) {
         var dialog = new SelectionDialog(x, y, x1, x2, svg);
+        dialog.create(x, y);
         this._dialogs.push(dialog);
+        return dialog;
+    }
+
+    openDialog(x, y, x1, x2, svg, mark) {
+        var dialog;
+        dialog = chartManager._dialogs.find(d => d.mark == mark);
+        if (!dialog) {
+            dialog = new SelectionDialog(x, y, x1, x2, svg);
+            dialog.open(x, y, mark);
+            this._dialogs.push(dialog);
+        }
         return dialog;
     }
 
     dialogFromNr(nr) {
         return this._dialogs.find(d => d.Nr == nr);
+    }
+
+    markFromNr(nr) {
+        return this._marks.find(m => m.nr == nr);
+    }
+    markFromUUID(uuid) {
+        return this._marks.find(m => m.uuid == uuid);
     }
 
     get clickStatus() { return this._clickStatus; }
@@ -310,6 +345,17 @@ class ChartManager {
 
         return new Date(ts + ms);
     }
+    SecondsFromRow(row) {
+        return row / this.maxFreq;
+    }
+    TimeFromRow(row) {
+        // TimeStampStart ist kein Unix Timestamp sondern das 1000 fache (also nanosekunden seit...) Daher / 1000
+        var ts = this.json.header.TimeStampStart / 1000;
+        // Millisekunden werden benötigt
+        var ms = this.SecondsFromRow(row) * 1000;
+
+        return new Date(ts + ms);
+    }
 
     addChart() {
         var newDiv = createDIV();
@@ -317,6 +363,8 @@ class ChartManager {
         var newSVG = createSVG();
         newSVG.onmousemove = mouseMove;
         newSVG.onclick = mouseClick;
+        newSVG.onmousedown = mouseDown;
+        newSVG.onmouseup = mouseUp;
         newSVG.setAttribute('width', '50000');
         newSVG.setAttribute('height', DIAGRAM_HEIGHT.toString());
         newDiv.appendChild(newSVG);
@@ -331,6 +379,30 @@ class ChartManager {
         this.charts.forEach(c => c.setCursor(e.offsetX));
         if (this.clickStatus.clickNumber == 1) {
             this.clickStatus.resizeSelectionRect(e.offsetX);
+        }
+        // Resize
+        if (chartManager._resizeData.state == 1) {
+            var newX = e.offsetX;
+            console.log(newX + " (" + (newX - chartManager._resizeData.offsetX) + ")");
+            var diffX = newX - chartManager._resizeData.offsetX;
+            var oldXPixel = chartManager.calcPixelFromRowNumber(chartManager._resizeData.oldStart);
+            var oldYPixel = chartManager.calcPixelFromRowNumber(chartManager._resizeData.oldEnd);
+            var oldDiffPixel = chartManager.calcPixelFromRowNumber(chartManager._resizeData.oldEnd - chartManager._resizeData.oldStart);
+            if (chartManager._resizeData.location == "resizeLeft") {
+                chartManager._resizeData.mark._rect.setAttribute("x", oldXPixel + diffX);
+                chartManager._resizeData.anchorLeft.setAttribute("x", oldXPixel + diffX)
+                chartManager._resizeData.mark.text1.setAttribute("x", oldXPixel + 20 + diffX);
+                chartManager._resizeData.mark.text2.setAttribute("x", oldXPixel + 20 + diffX);
+                chartManager._resizeData.mark.text3.setAttribute("x", oldXPixel + 20 + diffX);
+                diffX *= -1;
+                chartManager._resizeData.mark._rect.setAttribute("width", oldDiffPixel + diffX);
+            }
+            else {
+                chartManager._resizeData.mark._rect.setAttribute("width", oldDiffPixel + diffX);
+                chartManager._resizeData.anchorRight.setAttribute("x", oldYPixel + diffX - MARK_DRAGBOX_WIDTH)
+            }
+
+
         }
     }
     mouseClick(e) {
@@ -399,13 +471,69 @@ function OUT(t) {
 function mouseMove(e) {
     chartManager.mouseMove(e);
 }
+function keyDown(obj, e) {
+    chartManager.clickStatus.removeSelectionRect();
+    chartManager.clickStatus.clickNumber = 0;
+}
+function mouseUp(e) {
+    if (chartManager._resizeData.state == 1) {
+        var mark = chartManager._resizeData.mark;
+        mark.rowStart = chartManager.calcRowNumberFromSelectionPosition(mark._rect.getAttribute("x"));
+        mark.rowEnd = chartManager.calcRowNumberFromSelectionPosition(Number(mark._rect.getAttribute("x")) + Number(mark._rect.getAttribute("width")));
+        chartManager._resizeData.dialog = null;
+        chartManager._resizeData.mark = null;
+        chartManager._resizeData.oldStart = 0;
+        chartManager._resizeData.oldEnd = 0;
+        chartManager._resizeData.nr = 0;
+        chartManager._resizeData.state = 2;
+    }
+}
+function mouseDown(e) {
+    if (e.srcElement.getAttribute('dest') == "resizeLeft" || e.srcElement.getAttribute('dest') == "resizeRight") {
+        var nr = e.srcElement.getAttribute("nr");
+        var dialog = chartManager.dialogFromNr(nr);
+        var mark = dialog.mark;
+        chartManager._resizeData.dialog = dialog;
+        chartManager._resizeData.mark = mark;
+        chartManager._resizeData.oldStart = mark.rowStart;
+        chartManager._resizeData.oldEnd = mark.rowEnd;
+        chartManager._resizeData.nr = nr;
+        chartManager._resizeData.state = 1;
+        chartManager._resizeData.offsetX = e.offsetX;
+        chartManager._resizeData.location = e.srcElement.getAttribute('dest');
+    }
+}
 function mouseClick(e) {
     if (e.srcElement.getAttribute('dest') == "title") {
         // Title clicked
     }
+    else if (e.srcElement.getAttribute('dest') == "mark") {
+        // Mark clicked
+        var nr = e.srcElement.getAttribute("nr");
+        var mark = chartManager.markFromNr(nr);
+        /*
+        mark.rowStart = 20000;
+        mark.needUpdate = true;
+        mark.create();
+        console.log(mark);
+        */
+        // x, y, offsetX, offsetY, svg
+        var xPos = chartManager.calcPixelFromRowNumber(mark.rowStart) + Number(mark._rect.getAttribute('width'));
+        var yPos = mark.svg.parentElement.offsetTop + mark.svg.parentElement.offsetHeight;
+        var dialog = chartManager.openDialog(xPos, yPos, chartManager.calcPixelFromRowNumber(mark.rowStart), chartManager.calcPixelFromRowNumber(mark.rowEnd), mark.svg, mark);
+    }
+    else if (e.srcElement.getAttribute('dest') == "resizeLeft" || e.srcElement.getAttribute('dest') == "resizeRight") {
+        // Resize-Rects clicked
+    }
     else {
         // Chart clicked
-        chartManager.mouseClick(e);
+        if (chartManager._resizeData.state != 0) {
+            chartManager._resizeData.state = 0;
+        }
+        else {
+            chartManager.mouseClick(e);
+        }
+
     }
 }
 
@@ -621,6 +749,7 @@ async function start() {
 
     usedDataManager.json = json;
     chartManager = new ChartManager(json, usedDataManager);
+
     // ------------------------------  END Fuckup Point ------------------------------ 
 
     var chart1 = chartManager.addChart();
@@ -641,6 +770,16 @@ async function start() {
     chart4.addLine("FF0000", "Pulse");
 
     chartManager.createAll();
+    loadMarks();
+}
+
+function loadMarks() {
+    // TODO Wenn DB Verbindung, die vorhanden Marks aus dem JSON laden
+    const svg = chartManager.charts[0].svg;
+    const uuid = ""; // Für Implementierung als Component (wenn Datenbankzugriff besteht und Markierungen geladen werden)
+    const mark = new Mark(uuid, 10000, "Test", "#ff0000", "TEST", true, svg, MARK_SOURCE_DOC, 10000, 30000);
+
+    chartManager._marks.push(mark);
 }
 
 const dataManager =
@@ -804,7 +943,6 @@ class SelectionDialog {
 
         this.rowStart = chartManager.calcRowNumberFromSelectionPosition(this.selectionStart);
         this.rowEnd = chartManager.calcRowNumberFromSelectionPosition(this.selectionEnd);
-        this.create(x, y);
     }
 
     get Nr() { return this._nr; }
@@ -824,6 +962,13 @@ class SelectionDialog {
         var left = x;
         var top = y;
 
+        // Prüfen ob es in das Fenster passt
+        if (Number(SELECTION_DIALOG_WIDTH) + left + 20 > window.innerWidth) {
+            left = window.innerWidth - SELECTION_DIALOG_WIDTH - 40;
+        }
+        if (Number(SELECTION_DIALOG_HEIGHT) + top + 20 > window.innerHeight) {
+            top = window.innerHeight - SELECTION_DIALOG_HEIGHT - 50;
+        }
 
         var time1 = dateFormat(chartManager.Time(this.selectionStart), "HH:MM:SS");
         var time2 = dateFormat(chartManager.Time(this.selectionEnd), "HH:MM:SS");
@@ -937,70 +1082,251 @@ class SelectionDialog {
         const sel = this.select_typ;
         this.input_color.value = sel.options[sel.selectedIndex].getAttribute("color");
     }
+    open(x, y, mark) {
+        const parentDIV = chartManager.div;
+
+        this.div = createDIV();
+        this.mark = mark;
+        var left = x;
+        var top = y;
+
+        // Prüfen ob es in das Fenster passt
+        if (Number(SELECTION_DIALOG_WIDTH) + left + 20 > window.innerWidth) {
+            left = window.innerWidth - SELECTION_DIALOG_WIDTH - 40;
+        }
+        if (Number(SELECTION_DIALOG_HEIGHT) + top + 20 > window.innerHeight) {
+            top = window.innerHeight - SELECTION_DIALOG_HEIGHT - 50;
+        }
+
+        var time1 = dateFormat(chartManager.Time(this.selectionStart), "HH:MM:SS");
+        var time2 = dateFormat(chartManager.Time(this.selectionEnd), "HH:MM:SS");
+        var timeRange = `${time1} - ${time2}`; // TODO i18n
+
+        var sec = chartManager.Seconds(this.selectionEnd - this.selectionStart);
+        var secDate = new Date(2022, 1, 1, 0, 0, sec);
+
+
+        var timeDiff = dateFormat(secDate, "HH:MM:SS");             // TODO i18n
+
+        // DIV (Rahmen)
+        this.div.setAttribute("style", `position:absolute;left:${left}px;top:${top}px;border-width:${SELECTION_DIALOG_BORDERWIDTH}px;border-color:${SELECTION_DIALOG_BORDERCOLOR};border-style: solid;background: ${SELECTION_DIALOG_BACKGROUNDCOLOR}; width: ${SELECTION_DIALOG_WIDTH}px; height: ${SELECTION_DIALOG_HEIGHT}px;`);
+        parentDIV.appendChild(this.div);
+
+        // Tabelle für Information
+        const table = createElement("table");
+        this.div.appendChild(table);
+        var tr = createElement("tr");
+        table.appendChild(tr);
+        // Zeile: Von/Bis
+        var td = createElement("td");
+        td.innerHTML = "Von/Bis:"; // TODO i18n
+        tr.appendChild(td);
+
+        td = createElement("td");
+        td.innerHTML = timeRange;
+        tr.appendChild(td);
+
+        tr = createElement("tr");
+        table.appendChild(tr);
+
+        // Zeile: Dauer
+        td = createElement("td");
+        td.innerHTML = "Dauer:"; // TODO i18n
+        tr.appendChild(td);
+
+        td = createElement("td");
+        td.innerHTML = timeDiff;
+        tr.appendChild(td);
+
+        // ------------------------------ 
+        var hr = createElement("hr");
+        this.div.appendChild(hr);
+
+        // Notiz
+        var span = createElement("span");
+        span.setAttribute("style", "margin-left:5px;");
+        span.innerHTML = "Notiz:"; // TODO i18n
+        this.div.appendChild(span);
+
+        this.textarea_note = createElement("textarea");
+        this.textarea_note.setAttribute("id", "text");
+        this.textarea_note.setAttribute("style", `width:${SELECTION_DIALOG_WIDTH - 15}px;margin-left: 5px;height:80px;`);
+        this.textarea_note.value = mark.note;
+        this.div.appendChild(this.textarea_note);
+
+        // Typ
+        span = createElement("span");
+        span.setAttribute("style", "margin-left:5px;");
+        span.innerHTML = "Typ:"; // TODO i18n
+        this.div.appendChild(span);
+
+        this.select_typ = createElement("select");
+        this.select_typ.setAttribute("id", "typ");
+        this.select_typ.setAttribute("style", `width:${SELECTION_DIALOG_WIDTH - 9}px;margin-left:5px;`);
+        this.select_typ.setAttribute("onchange", `typSelected(this, ${this.Nr});`);
+
+        var option;
+        chartManager.markTypes.forEach(t => {
+            option = createElement("option");
+            option.setAttribute("color", t.color);
+            option.innerHTML = t.text;
+            this.select_typ.options.add(option);
+        })
+        this.div.appendChild(this.select_typ);
+        var idx = -1;
+        for (var i = 0; i < this.select_typ.options.length; i++) {
+            if (this.select_typ.options[i].value == mark.type) {
+                idx = i;
+                break;
+            }
+        }
+        if (idx > -1) {
+            this.select_typ.selectedIndex = idx;
+        }
+
+
+        // Farbe
+        span = createElement("span");
+        span.setAttribute("style", "margin-left:5px;");
+        span.innerHTML = "Farbe:"; // TODO i18n
+        this.div.appendChild(span);
+
+        this.input_color = createElement("input");
+        this.input_color.setAttribute("type", "color");
+        this.input_color.setAttribute("id", "color");
+        this.input_color.setAttribute("style", `width: ${SELECTION_DIALOG_WIDTH - 9}px;margin-left:5px;`);
+        this.input_color.value = mark.color;
+        this.div.appendChild(this.input_color);
+
+        // ------------------------------ 
+        hr = createElement("hr");
+        this.div.appendChild(hr);
+
+        // Ändern-Button
+        var input = createElement("input");
+        input.setAttribute("type", "button");
+        input.setAttribute("id", "create");
+        input.setAttribute("style", `margin-left:5px;`);
+        input.setAttribute("onclick", `changeMark(${this.Nr});`);
+        input.value = "Ändern"; // TODO i18n
+        this.div.appendChild(input);
+
+        // Resize-Button
+        input = createElement("input");
+        input.setAttribute("type", "button");
+        input.setAttribute("id", "cancel");
+        input.setAttribute("style", `position: absolute; left:50%;transform: translateX(-50%);`);
+        input.setAttribute("onclick", `resizeMark(${this.Nr});`);
+        input.value = "Start/Ende"; // TODO i18n
+        this.div.appendChild(input);
+
+        // Abbruch-Button
+        input = createElement("input");
+        input.setAttribute("type", "button");
+        input.setAttribute("id", "cancel");
+        input.setAttribute("style", `float:right;margin-right:5px;`);
+        input.setAttribute("onclick", `cancelMark(${this.Nr});`);
+        input.value = "Abbruch"; // TODO i18n
+        this.div.appendChild(input);
+    }
 }
 
 class Mark {
-    constructor(note, color, type, valid, svg, source, rowStart, rowEnd) {
+    constructor(uuid, nr, note, color, type, valid, svg, source, rowStart, rowEnd) {
+        this.nr = nr;
+        this.uuid = uuid;
         this.note = note;
         this.color = color;
         this.type = type;
         this.valid = valid;
         this.svg = svg;
-        this.rowStart = rowStart;
-        this.rowEnd = rowEnd;
+        this._rowStart = rowStart;
+        this._rowEnd = rowEnd;
         this.source = source;  // A für Arzt, M für ML
         this.needUpdate = true; // Flag das gesetzt wird, wenn create die Markierung erstellen oder updaten muss
 
         this.create();
     }
 
+    get rowStart() { return this._rowStart; }
+    set rowStart(v) {
+        this._rowStart = v;
+        if (this._rect) {
+            this._rect.setAttribute("x", chartManager.calcPixelFromRowNumber(v));
+        }
+    }
+    get rowEnd() { return this._rowEnd; }
+    set rowEnd(v) {
+        this._rowEnd = v;
+        if (this._rect) {
+            this._rect.setAttribute("width", chartManager.calcPixelFromRowNumber(v) - chartManager.calcPixelFromRowNumber(this._rowStart));
+        }
+    }
+
     create() {
         var rect = this._rect;
         if (!rect) {
             rect = createRect();
-            var x = chartManager.calcPixelFromRowNumber(this.rowStart)
-            rect.setAttribute('x', x);
-            rect.setAttribute('y', 0);
-            var width = this.rowEnd - this.rowStart;
-            rect.setAttribute('width', chartManager.calcPixelFromRowNumber(width));
-            rect.setAttribute('height', DIAGRAM_HEIGHT);
-            rect.setAttribute("fill", this.color);
-            rect.setAttribute("fill-opacity", MARK_OPACITY);
-            this.svg.appendChild(rect);
-            this.rect = rect;
-
-            var time1 = dateFormat(chartManager.Time(this.rowStart), "HH:MM:SS");
-            var time2 = dateFormat(chartManager.Time(this.rowEnd), "HH:MM:SS");
-            var timeRange = `${time1} - ${time2}`; // TODO i18n
-
-            var sec = chartManager.Seconds(this.rowEnd - this.rowStart);
-            var secDate = new Date(2022, 1, 1, 0, 0, sec);
-            var timeDiff = dateFormat(secDate, "HH:MM:SS");             // TODO i18n
-
-            let text = createText();
-            text.setAttribute('x', x + 20);
-            text.setAttribute('y', 25);
-            text.innerHTML = timeRange; // TODO i18n Zeitformat!
-            text.setAttribute('fill', 'black');
-            this.svg.appendChild(text);
-
-            text = createText();
-            text.setAttribute('x', x + 20);
-            text.setAttribute('y', 45);
-            text.innerHTML = "Dauer: " + timeDiff + ")"; // TODO i18n Zeitformat!
-            text.setAttribute('fill', 'black');
-            this.svg.appendChild(text);
-
-            text = createText();
-            text.setAttribute('x', x + 20);
-            text.setAttribute('y', 65);
-            text.innerHTML = this.type; // TODO i18n Zeitformat!
-            text.setAttribute('fill', 'black');
-            this.svg.appendChild(text);
-
-
-            chartManager.clickStatus.removeSelectionRect();
+            this._rect = rect;
         }
+        var x = chartManager.calcPixelFromRowNumber(this.rowStart)
+        rect.setAttribute('x', x);
+        rect.setAttribute('y', 0);
+        var width = this.rowEnd - this.rowStart;
+        rect.setAttribute('width', chartManager.calcPixelFromRowNumber(width));
+        rect.setAttribute('height', DIAGRAM_HEIGHT);
+        rect.setAttribute("fill", this.color);
+        rect.setAttribute("fill-opacity", MARK_OPACITY);
+        rect.setAttribute("dest", "mark");
+        rect.setAttribute("nr", this.nr);
+        rect.setAttribute("uuid", this.uuid);
+        this.svg.appendChild(rect);
+
+        var time1 = dateFormat(chartManager.TimeFromRow(this.rowStart), "HH:MM:SS");
+        var time2 = dateFormat(chartManager.TimeFromRow(this.rowEnd), "HH:MM:SS");
+        var timeRange = `${time1} - ${time2}`; // TODO i18n
+
+        var sec = chartManager.SecondsFromRow(this.rowEnd - this.rowStart);
+        var secDate = new Date(2022, 1, 1, 0, 0, sec);
+        var timeDiff = dateFormat(secDate, "HH:MM:SS");             // TODO i18n
+
+        if (!this.text1) {
+            this.text1 = createText();
+        }
+        this.text1.setAttribute('x', x + 20);
+        this.text1.setAttribute('y', 25);
+        this.text1.innerHTML = timeRange; // TODO i18n Zeitformat!
+        this.text1.setAttribute('fill', 'black');
+        this.text1.setAttribute("dest", "mark");
+        this.text1.setAttribute("nr", this.nr);
+        this.text1.setAttribute("uuid", this.uuid);
+        this.svg.appendChild(this.text1);
+
+        if (!this.text2) {
+            this.text2 = createText();
+        }
+        this.text2.setAttribute('x', x + 20);
+        this.text2.setAttribute('y', 45);
+        this.text2.innerHTML = "Dauer: " + timeDiff + ")"; // TODO i18n Zeitformat!
+        this.text2.setAttribute('fill', 'black');
+        this.text2.setAttribute("dest", "mark");
+        this.text2.setAttribute("nr", this.nr);
+        this.text2.setAttribute("uuid", this.uuid);
+        this.svg.appendChild(this.text2);
+
+        if (!this.text3) {
+            this.text3 = createText();
+        }
+        this.text3.setAttribute('x', x + 20);
+        this.text3.setAttribute('y', 65);
+        this.text3.innerHTML = this.type; // TODO i18n Zeitformat!
+        this.text3.setAttribute('fill', 'black');
+        this.text3.setAttribute("dest", "mark");
+        this.text3.setAttribute("nr", this.nr);
+        this.text3.setAttribute("uuid", this.uuid);
+        this.svg.appendChild(this.text3);
+
+        chartManager.clickStatus.removeSelectionRect();
     }
 
 }
@@ -1013,17 +1339,74 @@ function typSelected(obj, nr) {
 function createMark(nr) {
     const dialog = chartManager.dialogFromNr(nr);
     const svg = dialog.svg;
-    const mark = new Mark(dialog.note, dialog.color, dialog.type, true, svg, MARK_SOURCE_DOC, dialog.rowStart, dialog.rowEnd);
+    const uuid = ""; // Für Implementierung als Component (wenn Datenbankzugriff besteht und Markierungen geladen werden)
+    const mark = new Mark(uuid, nr, dialog.note, dialog.color, dialog.type, true, svg, MARK_SOURCE_DOC, dialog.rowStart, dialog.rowEnd);
 
     chartManager._marks.push(mark);
     chartManager.div.removeChild(dialog.div);
+    chartManager._dialogs.splice(chartManager._dialogs.indexOf(dialog), 1);
+}
+function changeMark(nr) {
+    const dialog = chartManager.dialogFromNr(nr);
+    const mark = dialog.mark;
+    const svg = dialog.svg;
+    const uuid = ""; // Für Implementierung als Component (wenn Datenbankzugriff besteht und Markierungen geladen werden)
+
+    mark.note = dialog.note;
+    mark.color = dialog.color;
+    mark.type = dialog.type;
+    mark._rect.setAttribute("fill", dialog.color);
+
+    dialog.svg.removeChild(dialog.rectLeft);
+    dialog.svg.removeChild(dialog.rectRight);
+    dialog.mark.needUpdate = true;
+    dialog.mark.create();
+    chartManager.div.removeChild(dialog.div);
+    chartManager._dialogs.splice(chartManager._dialogs.indexOf(dialog), 1);
 }
 function cancelMark(nr) {
     const dialog = chartManager.dialogFromNr(nr);
+    dialog.mark.rowStart = dialog.oldRowStart;
+    dialog.mark.rowEnd = dialog.oldRowEnd;
+    dialog.svg.removeChild(dialog.rectLeft);
+    dialog.svg.removeChild(dialog.rectRight);
     chartManager.div.removeChild(dialog.div);
+    chartManager._dialogs.splice(chartManager._dialogs.indexOf(dialog), 1);
 }
+function resizeMark(nr) {
+    const dialog = chartManager.dialogFromNr(nr);
+    dialog.oldRowStart = dialog.rowStart;
+    dialog.oldRowEnd = dialog.rowEnd;
+    dialog.rectLeft = createRect();
+    dialog.rectLeft.setAttribute('x', chartManager.calcPixelFromRowNumber(dialog.rowStart));
+    dialog.rectLeft.setAttribute('y', 0);
+    dialog.rectLeft.setAttribute('width', MARK_DRAGBOX_WIDTH);
+    dialog.rectLeft.setAttribute('height', DIAGRAM_HEIGHT);
+    dialog.rectLeft.setAttribute("fill", MARK_DRAGBOX_COLOR);
+    dialog.rectLeft.setAttribute("opacity", MARK_DRAGBOX_OPACITY)
+    dialog.rectLeft.setAttribute("cursor", "ew-resize");
+    dialog.rectLeft.setAttribute("dest", "resizeLeft");
+    dialog.rectLeft.setAttribute("nr", nr);
+    dialog.svg.appendChild(dialog.rectLeft);
+
+    chartManager._resizeData.anchorLeft = dialog.rectLeft;
 
 
+    dialog.rectRight = createRect();
+    dialog.rectRight.setAttribute('x', chartManager.calcPixelFromRowNumber(dialog.rowEnd) - MARK_DRAGBOX_WIDTH);
+    dialog.rectRight.setAttribute('y', 0);
+    dialog.rectRight.setAttribute('width', MARK_DRAGBOX_WIDTH);
+    dialog.rectRight.setAttribute('height', DIAGRAM_HEIGHT);
+    dialog.rectRight.setAttribute("fill", MARK_DRAGBOX_COLOR);
+    dialog.rectRight.setAttribute("opacity", MARK_DRAGBOX_OPACITY)
+    dialog.rectRight.setAttribute("cursor", "ew-resize");
+    dialog.rectRight.setAttribute("dest", "resizeRight");
+    dialog.rectRight.setAttribute("nr", nr);
+    dialog.svg.appendChild(dialog.rectRight);
+    chartManager._resizeData.anchorRight = dialog.rectRight;
+
+    // chartManager.div.removeChild(dialog.div);
+}
 
 start();
 //startNode();
