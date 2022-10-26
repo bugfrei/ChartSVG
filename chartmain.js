@@ -11,7 +11,7 @@ const SELECTION_NOTEOPACITY = 0.8;
 const SELECTION_MIN_VALUES = 100; // Wenn eine Markierung sehr klein ist, wird dieser Wert als min. größe einer Markierung verwendet (ANZAHL DATENWERTE)
 const SELECTION_MIN_PIXEL = 20; // Wenn eine Markierung sehr klein ist, wird dieser Wert als min. größe einer Markierung verwendet (ANZAHL PIXEL)
 const SELECTION_DIALOG_BACKGROUNDCOLOR = "#DDDDDD";
-const SELECTION_DIALOG_WIDTH = "250"; // px
+const SELECTION_DIALOG_WIDTH = "350"; // px
 const SELECTION_DIALOG_HEIGHT = "300"; // px
 const SELECTION_DIALOG_BORDERCOLOR = "black";
 const SELECTION_DIALOG_BORDERWIDTH = "2"; // px
@@ -785,6 +785,10 @@ function loadMarks() {
     const mark = new Mark(uuid, 10000, "Test", "#ff0000", "TEST", true, svg, MARK_SOURCE_DOC, 10000, 30000);
 
     chartManager._marks.push(mark);
+
+    const mark2 = new Mark(uuid, 10001, "90%", "#aaaaaa", "Apnoe", true, svg, MARK_SOURCE_ML, 50000, 70000, true);
+    chartManager._marks.push(mark2);
+
 }
 
 const dataManager =
@@ -1255,7 +1259,7 @@ class SelectionDialog {
 }
 
 class Mark {
-    constructor(uuid, nr, note, color, type, valid, svg, source, rowStart, rowEnd) {
+    constructor(uuid, nr, note, color, type, valid, svg, source, rowStart, rowEnd, visible = true) {
         this.nr = nr;
         this.uuid = uuid;
         this.note = note;
@@ -1263,6 +1267,7 @@ class Mark {
         this.type = type;
         this.valid = valid;
         this.svg = svg;
+        this.visible = visible;
         this._rowStart = rowStart;
         this._rowEnd = rowEnd;
         this.source = source;  // A für Arzt, M für ML
@@ -1287,71 +1292,72 @@ class Mark {
     }
 
     create() {
-        var rect = this._rect;
-        if (!rect) {
-            rect = createRect();
-            this._rect = rect;
+        if (this.visible) {
+            var rect = this._rect;
+            if (!rect) {
+                rect = createRect();
+                this._rect = rect;
+            }
+            var x = chartManager.calcPixelFromRowNumber(this.rowStart)
+            rect.setAttribute('x', x);
+            rect.setAttribute('y', 0);
+            var width = this.rowEnd - this.rowStart;
+            rect.setAttribute('width', chartManager.calcPixelFromRowNumber(width));
+            rect.setAttribute('height', DIAGRAM_HEIGHT);
+            rect.setAttribute("fill", this.color);
+            rect.setAttribute("fill-opacity", MARK_OPACITY);
+            rect.setAttribute("dest", "mark");
+            rect.setAttribute("nr", this.nr);
+            rect.setAttribute("uuid", this.uuid);
+            this.svg.appendChild(rect);
+
+            var time1 = dateFormat(chartManager.TimeFromRow(this.rowStart), "HH:MM:SS");
+            var time2 = dateFormat(chartManager.TimeFromRow(this.rowEnd), "HH:MM:SS");
+            var timeRange = `${time1} - ${time2}`; // TODO i18n
+
+            var sec = chartManager.SecondsFromRow(this.rowEnd - this.rowStart);
+            var secDate = new Date(2022, 1, 1, 0, 0, sec);
+            var timeDiff = dateFormat(secDate, "HH:MM:SS");             // TODO i18n
+
+            if (!this.text1) {
+                this.text1 = createText();
+            }
+            this.text1.setAttribute('x', x + 20);
+            this.text1.setAttribute('y', 25);
+            this.text1.innerHTML = timeRange; // TODO i18n Zeitformat!
+            this.text1.setAttribute('fill', 'black');
+            this.text1.setAttribute("dest", "mark");
+            this.text1.setAttribute("nr", this.nr);
+            this.text1.setAttribute("uuid", this.uuid);
+            this.svg.appendChild(this.text1);
+
+            if (!this.text2) {
+                this.text2 = createText();
+            }
+            this.text2.setAttribute('x', x + 20);
+            this.text2.setAttribute('y', 45);
+            this.text2.innerHTML = "Dauer: " + timeDiff + ")"; // TODO i18n Zeitformat!
+            this.text2.setAttribute('fill', 'black');
+            this.text2.setAttribute("dest", "mark");
+            this.text2.setAttribute("nr", this.nr);
+            this.text2.setAttribute("uuid", this.uuid);
+            this.svg.appendChild(this.text2);
+
+            if (!this.text3) {
+                this.text3 = createText();
+            }
+            this.text3.setAttribute('x', x + 20);
+            this.text3.setAttribute('y', 65);
+            this.text3.innerHTML = this.type; // TODO i18n Zeitformat!
+            this.text3.setAttribute('fill', 'black');
+            this.text3.setAttribute("dest", "mark");
+            this.text3.setAttribute("nr", this.nr);
+            this.text3.setAttribute("uuid", this.uuid);
+            this.svg.appendChild(this.text3);
+
+            chartManager.clickStatus.removeSelectionRect();
         }
-        var x = chartManager.calcPixelFromRowNumber(this.rowStart)
-        rect.setAttribute('x', x);
-        rect.setAttribute('y', 0);
-        var width = this.rowEnd - this.rowStart;
-        rect.setAttribute('width', chartManager.calcPixelFromRowNumber(width));
-        rect.setAttribute('height', DIAGRAM_HEIGHT);
-        rect.setAttribute("fill", this.color);
-        rect.setAttribute("fill-opacity", MARK_OPACITY);
-        rect.setAttribute("dest", "mark");
-        rect.setAttribute("nr", this.nr);
-        rect.setAttribute("uuid", this.uuid);
-        this.svg.appendChild(rect);
-
-        var time1 = dateFormat(chartManager.TimeFromRow(this.rowStart), "HH:MM:SS");
-        var time2 = dateFormat(chartManager.TimeFromRow(this.rowEnd), "HH:MM:SS");
-        var timeRange = `${time1} - ${time2}`; // TODO i18n
-
-        var sec = chartManager.SecondsFromRow(this.rowEnd - this.rowStart);
-        var secDate = new Date(2022, 1, 1, 0, 0, sec);
-        var timeDiff = dateFormat(secDate, "HH:MM:SS");             // TODO i18n
-
-        if (!this.text1) {
-            this.text1 = createText();
-        }
-        this.text1.setAttribute('x', x + 20);
-        this.text1.setAttribute('y', 25);
-        this.text1.innerHTML = timeRange; // TODO i18n Zeitformat!
-        this.text1.setAttribute('fill', 'black');
-        this.text1.setAttribute("dest", "mark");
-        this.text1.setAttribute("nr", this.nr);
-        this.text1.setAttribute("uuid", this.uuid);
-        this.svg.appendChild(this.text1);
-
-        if (!this.text2) {
-            this.text2 = createText();
-        }
-        this.text2.setAttribute('x', x + 20);
-        this.text2.setAttribute('y', 45);
-        this.text2.innerHTML = "Dauer: " + timeDiff + ")"; // TODO i18n Zeitformat!
-        this.text2.setAttribute('fill', 'black');
-        this.text2.setAttribute("dest", "mark");
-        this.text2.setAttribute("nr", this.nr);
-        this.text2.setAttribute("uuid", this.uuid);
-        this.svg.appendChild(this.text2);
-
-        if (!this.text3) {
-            this.text3 = createText();
-        }
-        this.text3.setAttribute('x', x + 20);
-        this.text3.setAttribute('y', 65);
-        this.text3.innerHTML = this.type; // TODO i18n Zeitformat!
-        this.text3.setAttribute('fill', 'black');
-        this.text3.setAttribute("dest", "mark");
-        this.text3.setAttribute("nr", this.nr);
-        this.text3.setAttribute("uuid", this.uuid);
-        this.svg.appendChild(this.text3);
-
-        chartManager.clickStatus.removeSelectionRect();
     }
-
 }
 
 function typSelected(obj, nr) {
@@ -1389,10 +1395,18 @@ function changeMark(nr) {
 }
 function cancelMark(nr) {
     const dialog = chartManager.dialogFromNr(nr);
-    dialog.mark.rowStart = dialog.oldRowStart;
-    dialog.mark.rowEnd = dialog.oldRowEnd;
-    dialog.svg.removeChild(dialog.rectLeft);
-    dialog.svg.removeChild(dialog.rectRight);
+    if (dialog.oldRowStart) {
+        dialog.mark.rowStart = dialog.oldRowStart;
+    }
+    if (dialog.oldRowEnd) {
+        dialog.mark.rowEnd = dialog.oldRowEnd;
+    }
+    if (dialog.rectLeft) {
+        dialog.svg.removeChild(dialog.rectLeft);
+    }
+    if (dialog.rectRight) {
+        dialog.svg.removeChild(dialog.rectRight);
+    }
     chartManager.div.removeChild(dialog.div);
     chartManager._dialogs.splice(chartManager._dialogs.indexOf(dialog), 1);
 }
