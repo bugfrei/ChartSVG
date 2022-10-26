@@ -11,7 +11,7 @@ const SELECTION_NOTEOPACITY = 0.8;
 const SELECTION_MIN_VALUES = 100; // Wenn eine Markierung sehr klein ist, wird dieser Wert als min. größe einer Markierung verwendet (ANZAHL DATENWERTE)
 const SELECTION_MIN_PIXEL = 20; // Wenn eine Markierung sehr klein ist, wird dieser Wert als min. größe einer Markierung verwendet (ANZAHL PIXEL)
 const SELECTION_DIALOG_BACKGROUNDCOLOR = "#DDDDDD";
-const SELECTION_DIALOG_WIDTH = "350"; // px
+const SELECTION_DIALOG_WIDTH = "300"; // px
 const SELECTION_DIALOG_HEIGHT = "300"; // px
 const SELECTION_DIALOG_BORDERCOLOR = "black";
 const SELECTION_DIALOG_BORDERWIDTH = "2"; // px
@@ -1242,9 +1242,18 @@ class SelectionDialog {
         input = createElement("input");
         input.setAttribute("type", "button");
         input.setAttribute("id", "cancel");
-        input.setAttribute("style", `position: absolute; left:50%;transform: translateX(-50%);`);
+        input.setAttribute("style", `position: absolute; left:5.3em;`);
         input.setAttribute("onclick", `resizeMark(${this.Nr});`);
         input.value = "Start/Ende"; // TODO i18n
+        this.div.appendChild(input);
+
+        // Löschen-Button
+        input = createElement("input");
+        input.setAttribute("type", "button");
+        input.setAttribute("id", "cancel");
+        input.setAttribute("style", `position: absolute; left:11.7em;`);
+        input.setAttribute("onclick", `deleteMark(${this.Nr});`);
+        input.value = "Löschen"; // TODO i18n
         this.div.appendChild(input);
 
         // Abbruch-Button
@@ -1267,7 +1276,7 @@ class Mark {
         this.type = type;
         this.valid = valid;
         this.svg = svg;
-        this.visible = visible;
+        this.visible = visible;         // Entspricht dem löschen bei ML Markierungen (Eintrag wird nicht real gelöscht und nicht mehr angezeigt)
         this._rowStart = rowStart;
         this._rowEnd = rowEnd;
         this.source = source;  // A für Arzt, M für ML
@@ -1409,6 +1418,41 @@ function cancelMark(nr) {
     }
     chartManager.div.removeChild(dialog.div);
     chartManager._dialogs.splice(chartManager._dialogs.indexOf(dialog), 1);
+}
+function deleteMark(nr) {
+    const dialog = chartManager.dialogFromNr(nr);
+    if (dialog.mark) {
+        dialog.svg.removeChild(dialog.mark._rect);
+        dialog.svg.removeChild(dialog.mark.text1);
+        dialog.svg.removeChild(dialog.mark.text2);
+        dialog.svg.removeChild(dialog.mark.text3);
+        if (dialog.rectLeft) {
+            dialog.svg.removeChild(dialog.rectLeft);
+        }
+        if (dialog.rectRight) {
+            dialog.svg.removeChild(dialog.rectRight);
+        }
+
+        if (dialog.mark.source == MARK_SOURCE_ML) {
+            console.log("M - Visible false");
+            // Nicht löschen, nur als NICHT SICHTBAR ändern
+            dialog.mark.visible = false;
+        }
+        else {
+            console.log("A - Deleted");
+            // Arztmarkierungen werden wirklich gelöscht
+            const indexOfMark = chartManager._marks.indexOf(dialog.mark);
+            if (indexOfMark > -1) {
+                chartManager._marks.splice(indexOfMark, 1);
+            }
+        }
+
+        chartManager.div.removeChild(dialog.div);
+        chartManager._dialogs.splice(chartManager._dialogs.indexOf(dialog), 1);
+
+
+    }
+
 }
 function resizeMark(nr) {
     const dialog = chartManager.dialogFromNr(nr);
