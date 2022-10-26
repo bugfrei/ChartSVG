@@ -385,22 +385,21 @@ class ChartManager {
             var newX = e.offsetX;
             console.log(newX + " (" + (newX - chartManager._resizeData.offsetX) + ")");
             var diffX = newX - chartManager._resizeData.offsetX;
+
             var oldXPixel = chartManager.calcPixelFromRowNumber(chartManager._resizeData.oldStart);
             var oldYPixel = chartManager.calcPixelFromRowNumber(chartManager._resizeData.oldEnd);
             var oldDiffPixel = chartManager.calcPixelFromRowNumber(chartManager._resizeData.oldEnd - chartManager._resizeData.oldStart);
             if (chartManager._resizeData.location == "resizeLeft") {
-                chartManager._resizeData.mark._rect.setAttribute("x", oldXPixel + diffX);
+                chartManager._resizeData.mark.rowStart = chartManager.calcRowNumberFromSelectionPosition(oldXPixel + diffX);
                 chartManager._resizeData.anchorLeft.setAttribute("x", oldXPixel + diffX)
-                chartManager._resizeData.mark.text1.setAttribute("x", oldXPixel + 20 + diffX);
-                chartManager._resizeData.mark.text2.setAttribute("x", oldXPixel + 20 + diffX);
-                chartManager._resizeData.mark.text3.setAttribute("x", oldXPixel + 20 + diffX);
-                diffX *= -1;
-                chartManager._resizeData.mark._rect.setAttribute("width", oldDiffPixel + diffX);
             }
             else {
-                chartManager._resizeData.mark._rect.setAttribute("width", oldDiffPixel + diffX);
+                chartManager._resizeData.mark.rowEnd = chartManager.calcRowNumberFromSelectionPosition(oldYPixel + diffX);
                 chartManager._resizeData.anchorRight.setAttribute("x", oldYPixel + diffX - MARK_DRAGBOX_WIDTH)
             }
+            chartManager._resizeData.mark.needUpdate = true;
+            chartManager._resizeData.mark.create();
+            chartManager._resizeData.dialog.refreshTimeData(chartManager._resizeData.mark.rowStart, chartManager._resizeData.mark.rowEnd);
 
 
         }
@@ -480,6 +479,12 @@ function mouseUp(e) {
         var mark = chartManager._resizeData.mark;
         mark.rowStart = chartManager.calcRowNumberFromSelectionPosition(mark._rect.getAttribute("x"));
         mark.rowEnd = chartManager.calcRowNumberFromSelectionPosition(Number(mark._rect.getAttribute("x")) + Number(mark._rect.getAttribute("width")));
+        mark.needUpdate = true;
+        mark.create();
+        mark.svg.removeChild(chartManager._resizeData.anchorLeft)
+        mark.svg.removeChild(chartManager._resizeData.anchorRight)
+        mark.svg.appendChild(chartManager._resizeData.anchorLeft);
+        mark.svg.appendChild(chartManager._resizeData.anchorRight);
         chartManager._resizeData.dialog = null;
         chartManager._resizeData.mark = null;
         chartManager._resizeData.oldStart = 0;
@@ -955,6 +960,20 @@ class SelectionDialog {
     get note() {
         return this.textarea_note.value;
     }
+    refreshTimeData(rowStart, rowEnd) {
+        var startPix = chartManager.calcPixelFromRowNumber(rowStart);
+        var endPix = chartManager.calcPixelFromRowNumber(rowEnd);
+        var time1 = dateFormat(chartManager.Time(startPix), "HH:MM:SS");
+        var time2 = dateFormat(chartManager.Time(endPix), "HH:MM:SS");
+        var timeRange = `${time1} - ${time2}`; // TODO i18n
+
+        var sec = chartManager.Seconds(endPix - startPix);
+        var secDate = new Date(2022, 1, 1, 0, 0, sec);
+
+        var timeDiff = dateFormat(secDate, "HH:MM:SS");             // TODO i18n
+        this._timeRangeTD.innerHTML = timeRange;
+        this._timeDiffTD.innerHTML = timeDiff;
+    }
     create(x, y) {
         const parentDIV = chartManager.div;
 
@@ -997,6 +1016,7 @@ class SelectionDialog {
         td = createElement("td");
         td.innerHTML = timeRange;
         tr.appendChild(td);
+        this._timeRangeTD = td;
 
         tr = createElement("tr");
         table.appendChild(tr);
@@ -1009,6 +1029,7 @@ class SelectionDialog {
         td = createElement("td");
         td.innerHTML = timeDiff;
         tr.appendChild(td);
+        this._timeDiffTD = td;
 
         // ------------------------------ 
         var hr = createElement("hr");
@@ -1125,6 +1146,7 @@ class SelectionDialog {
         td = createElement("td");
         td.innerHTML = timeRange;
         tr.appendChild(td);
+        this._timeRangeTD = td;
 
         tr = createElement("tr");
         table.appendChild(tr);
@@ -1137,6 +1159,7 @@ class SelectionDialog {
         td = createElement("td");
         td.innerHTML = timeDiff;
         tr.appendChild(td);
+        this._timeDiffTD = td;
 
         // ------------------------------ 
         var hr = createElement("hr");
