@@ -21,6 +21,10 @@ const MARK_DRAGBOX_WIDTH = 20;
 const MARK_SOURCE_DOC = "A";
 const MARK_SOURCE_ML = "M";
 const MARK_OPACITY = 0.5;
+const HORIZONTAL_SCALE_HEIGHT = 60;
+//const HORIZONTAL_SCALE_BACKGROUND = "#FF0000"; // eigentlich #AAAAAA
+const HORIZONTAL_SCALE_BACKGROUND = "#dddddd"; // eigentlich #333333
+const HSCALE_TEXT_COLOR = "#000000";
 
 
 var chartManager;
@@ -37,7 +41,40 @@ class ChartManager {
         this._dialogNr = 0;         // Fortlaufende Nummer zur identifikation neuer Dialoge
         this._dialogs = [];         // Auflistung der Dialoge
         this._marks = [];           // Auflistung der Markierungen (egal ob Arzt oder ML)
-        this._resizeData = {
+        this._horizontalScale = []; // Auflistung der horizontalen Skalas (in der Regel nur eine für oben)
+        this.HScaleRanges = [       // die Bereiche, die in der Horizontalen Skala dargestellt werden können
+            {
+                seconds: 3600,      // Stundenabstände
+                text: 1,             // jede Markierung mit Beschriftung
+                height: 90
+            },
+            {
+                seconds: 600,       // 10 Minuten
+                text: 3,            // jede dritte Markierung mit Beschriftung
+                height: 70
+            },
+            {
+                seconds: 300,       // 5 Minuten
+                text: 0,            // keine Beschriftung
+                height: 50
+            },
+            {
+                seconds: 60,        // 1 Minute
+                text: 0,            // keine Beschriftung
+                height: 30
+            },
+            {
+                seconds: 10,        // 10 Sekunden
+                text: 0,
+                height: 20
+            },
+            {
+                seconds: 1,         // 1 Sekunde
+                text: 0,
+                height: 10
+            }
+        ]
+        this._resizeData = {        // Zum verarbeiten von Resize (MouseDown...MouseMove...MouseUp)
             dialog: null,
             mark: null,
             oldStart: 0,
@@ -48,7 +85,7 @@ class ChartManager {
             state: 0,
             offsetX: 0
         };
-        this._clickStatus = {
+        this._clickStatus = {      // Zum verarbeiten von einer Auswahl (Start/Ende mit Klicks) 
             clickNumber: 0,
             click1OffsetX: 0,
             click2OffsetX: 0,
@@ -267,13 +304,23 @@ class ChartManager {
         this.div = areawrapperDIV;
     }
 
+    addHorizontalScale({ before, after, height }) {
+        var hs = new HorizontalScale({ before, after, height });
+        this._horizontalScale.push(hs);
+        return hs;
+    }
+
+    createHorizontalScales() {
+        this._horizontalScale.forEach(h => { h.create(); });
+    }
+
+
     calcRowNumberFromSelectionPosition(pixelPosition) {
         return pixelPosition * this.zoomFreq;
     }
     calcPixelFromRowNumber(rowNumber) {
         return rowNumber / this.zoomFreq;
     }
-
 
     nextDialogNr() {
         this._dialogNr++;
@@ -439,6 +486,7 @@ class ChartManager {
     createAll() {
         this.charts.forEach(c => c.drawLines());
         this._marks.forEach(m => { m.needUpdate = true; m.create(); })
+        this.createHorizontalScales();
     }
 }
 
@@ -743,51 +791,6 @@ async function loadJSON() {
 function startNode() {
     let json = require("/Users/carstenschlegel/Coding/JS/SVG/mittel.json");
     dataManager.json = json;
-
-}
-
-async function start() {
-    let load = await (fetch("./all.json"));
-    let json = await load.json();
-    // --------------------------------  Fuckup Point -------------------------------- 
-    const usedDataManager = dataManager;
-
-    usedDataManager.json = json;
-    chartManager = new ChartManager(json, usedDataManager);
-
-    // ------------------------------  END Fuckup Point ------------------------------ 
-
-    var chart1 = chartManager.addChart();
-    chart1.addLine("000000", "Breathing");
-    var chart2 = chartManager.addChart();
-    chart2.addLine("FF0000", "MovementX");
-    chart2.addLine("00FF00", "MovementY");
-    chart2.addLine("0000FF", "MovementZ");
-    var chart3 = chartManager.addChart();
-    chart3.addLine("0000FF", "OxSaturation");
-    var chart4 = chartManager.addChart();
-    if (false) {
-        chart4.addLine("FF0000", "Breathing");
-        chartManager.createAll();
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        chart4.clearLines();
-    }
-    chart4.addLine("FF0000", "Pulse");
-
-    chartManager.createAll();
-    loadMarks();
-}
-
-function loadMarks() {
-    // TODO Wenn DB Verbindung, die vorhanden Marks aus dem JSON laden
-    const svg = chartManager.charts[0].svg;
-    const uuid = ""; // Für Implementierung als Component (wenn Datenbankzugriff besteht und Markierungen geladen werden)
-    const mark = new Mark(uuid, 10000, "Test", "#ff0000", "TEST", true, svg, MARK_SOURCE_DOC, 10000, 30000);
-
-    chartManager._marks.push(mark);
-
-    const mark2 = new Mark(uuid, 10001, "90%", "#aaaaaa", "Apnoe", true, svg, MARK_SOURCE_ML, 50000, 70000, true);
-    chartManager._marks.push(mark2);
 
 }
 
@@ -1489,6 +1492,159 @@ function resizeMark(nr) {
     // chartManager.div.removeChild(dialog.div);
 }
 
+
+
+async function start() {
+    let load = await (fetch("./all.json"));
+    let json = await load.json();
+    // --------------------------------  Fuckup Point -------------------------------- 
+    const usedDataManager = dataManager;
+
+    usedDataManager.json = json;
+    chartManager = new ChartManager(json, usedDataManager);
+
+    // ------------------------------  END Fuckup Point ------------------------------ 
+
+    var chart1 = chartManager.addChart();
+    chartManager.addHorizontalScale({ before: chart1, height: HORIZONTAL_SCALE_HEIGHT });
+    chart1.addLine("000000", "Breathing");
+    var chart2 = chartManager.addChart();
+    chart2.addLine("FF0000", "MovementX");
+    chart2.addLine("00FF00", "MovementY");
+    chart2.addLine("0000FF", "MovementZ");
+    var chart3 = chartManager.addChart();
+    chart3.addLine("0000FF", "OxSaturation");
+    var chart4 = chartManager.addChart();
+    if (false) {
+        chart4.addLine("FF0000", "Breathing");
+        chartManager.createAll();
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        chart4.clearLines();
+    }
+    chart4.addLine("FF0000", "Pulse");
+
+    chartManager.addHorizontalScale({ after: chart4, height: HORIZONTAL_SCALE_HEIGHT });
+
+    chartManager.createAll();
+    loadMarks();
+}
+
+function loadMarks() {
+    // TODO Wenn DB Verbindung, die vorhanden Marks aus dem JSON laden
+    const svg = chartManager.charts[0].svg;
+    const uuid = ""; // Für Implementierung als Component (wenn Datenbankzugriff besteht und Markierungen geladen werden)
+    const mark = new Mark(uuid, 10000, "Test", "#ff0000", "TEST", true, svg, MARK_SOURCE_DOC, 10000, 30000);
+
+    chartManager._marks.push(mark);
+
+    const mark2 = new Mark(uuid, 10001, "90%", "#aaaaaa", "Apnoe", true, svg, MARK_SOURCE_ML, 50000, 70000, true);
+    chartManager._marks.push(mark2);
+
+}
+
+class HorizontalScale {
+    constructor({ before, after, height }) {
+        this.before = before;
+        this.after = after;
+        this.height = height;
+        this.rect = null;
+        this.div = null;
+        this.svg = null;
+    }
+
+    create() {
+        var width = 0;
+        if (this.after) {
+            width = this.after.svg.getAttribute("width");
+        }
+        else if (this.before) {
+            width = this.before.svg.getAttribute("width");
+        }
+        if (!this.rect) {
+            this.rect = createRect();
+            this.rect.setAttribute('x', 0);
+            this.rect.setAttribute('y', 0);
+            this.rect.setAttribute('width', width);
+            this.rect.setAttribute('height', this.height);
+            this.rect.setAttribute("fill", HORIZONTAL_SCALE_BACKGROUND);
+
+            this.svg = createSVG();
+            this.svg.setAttribute('width', width);
+            this.svg.setAttribute('height', this.height);
+
+            this.div = createDIV();
+            this.div.appendChild(this.svg);
+
+            this.svg.appendChild(this.rect);
+        }
+        if (this.before) {
+            chartManager.div.insertBefore(this.div, this.before.div);
+        }
+        if (this.after) {
+            var idx = -1;
+            for (var i = 0; i < chartManager.div.children.length; i++) {
+                if (chartManager.div.children[i] == this.after.div) {
+                    idx = i;
+                }
+            }
+            if (idx < chartManager.div.children.length - 1) {
+                chartManager.div.insertBefore(this.div, chartManager.div.children[idx + 1]);
+            }
+            else {
+                chartManager.div.appendChild(this.div);
+            }
+        }
+
+        this.draw();
+    }
+    draw() {
+        this.line(0, 100, null, "#000000", 1);
+        chartManager.HScaleRanges.forEach(range => {
+            const sec = range.seconds;
+            const textNr = range.text;
+            const lineHeight = range.height;
+            const svg = this.svg;
+
+
+            var actualPosition_seconds = 0;
+            var actualPosition_pixel = 0;
+
+
+
+
+        })
+    }
+    line(x, heightPercent, text, color, width) {
+        var height = (this.height / 100 * heightPercent) / 2; // Halb weil von der Mitte nach oben und nach unten
+        var center = this.height / 2;
+        var line = createLine();
+        var x1 = x;
+        var y1 = center - height;
+        var x2 = x;
+        var y2 = center + height;
+
+        line.setAttribute('x1', x1);
+        line.setAttribute('y1', y1);
+        line.setAttribute('x2', x2);
+        line.setAttribute('y2', y2);
+        line.setAttribute('style', `stroke:${color}; stroke-width:${width}`);
+
+        this.svg.appendChild(line);
+        if (text && text != "") {
+            var txt = createText();
+
+            txt.setAttribute('x', x1);
+            txt.setAttribute('y', 15);
+            txt.setAttribute('dest', "title");
+
+            txt.innerHTML = text;
+            txt.setAttribute('fill', HSCALE_TEXT_COLOR);
+            this.svg.appendChild(txt);
+        }
+    }
+
+
+}
 start();
 //startNode();
 //var x = dataManager.dataInformationFromSignalName("Breathing");
