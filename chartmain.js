@@ -46,32 +46,44 @@ class ChartManager {
             {
                 seconds: 3600,      // Stundenabstände
                 text: 1,             // jede Markierung mit Beschriftung
-                height: 90
+                height: 90,
+                color: "#000000",
+                width: 1
             },
             {
                 seconds: 600,       // 10 Minuten
                 text: 3,            // jede dritte Markierung mit Beschriftung
-                height: 70
+                height: 70,
+                color: "#000000",
+                width: 1
             },
             {
                 seconds: 300,       // 5 Minuten
                 text: 0,            // keine Beschriftung
-                height: 50
+                height: 50,
+                color: "#000000",
+                width: 0.8
             },
             {
                 seconds: 60,        // 1 Minute
                 text: 0,            // keine Beschriftung
-                height: 30
+                height: 30,
+                color: "#000000",
+                width: 0.6
             },
             {
                 seconds: 10,        // 10 Sekunden
                 text: 0,
-                height: 20
+                height: 20,
+                color: "#000000",
+                width: 0.4
             },
             {
                 seconds: 1,         // 1 Sekunde
                 text: 0,
-                height: 10
+                height: 10,
+                color: "#000000",
+                width: 0.2
             }
         ]
         this._resizeData = {        // Zum verarbeiten von Resize (MouseDown...MouseMove...MouseUp)
@@ -320,6 +332,17 @@ class ChartManager {
     }
     calcPixelFromRowNumber(rowNumber) {
         return rowNumber / this.zoomFreq;
+    }
+    calcPixelsForSeconds(seconds) {
+        const valuesPerSeconds = this.maxFreq;
+        const valuesTotal = valuesPerSeconds * seconds;
+        const pixelsTotal = valuesTotal / this.zoomFreq;
+        return pixelsTotal;
+    }
+    calcValuesFromSeconds(seconds) {
+        const valuesPerSecond = this.maxFreq;
+        const valuesTotal = valuesPerSecond * seoncds;
+        return valuesTotal;
     }
 
     nextDialogNr() {
@@ -1601,16 +1624,25 @@ class HorizontalScale {
         this.line(0, 100, null, "#000000", 1);
         chartManager.HScaleRanges.forEach(range => {
             const sec = range.seconds;
-            const textNr = range.text;
-            const lineHeight = range.height;
-            const svg = this.svg;
+            const pixelsPerSeconds = chartManager.calcPixelsForSeconds(sec);
+            if (pixelsPerSeconds >= 5) {
+                // Mindestens 5 Pixel Abstand pro Skala-Linie muss sein da sie sonnst zu eng gezeichnet wird
+                const textNr = range.text;
+                const lineHeight = range.height;
+                const color = range.color;
+                const lineWidth = range.width;
 
+                const svg = this.svg;
+                const svgWidth = svg.getAttribute('width');
 
-            var actualPosition_seconds = 0;
-            var actualPosition_pixel = 0;
-
-
-
+                var actualPosition_seconds = sec;
+                var pixelPos = chartManager.calcPixelsForSeconds(actualPosition_seconds);
+                while (pixelPos < svgWidth) {
+                    this.line(pixelPos, lineHeight, "", color, lineWidth);
+                    actualPosition_seconds += sec;
+                    pixelPos = chartManager.calcPixelsForSeconds(actualPosition_seconds);
+                }
+            }
 
         })
     }
