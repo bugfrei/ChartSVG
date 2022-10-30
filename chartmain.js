@@ -44,6 +44,12 @@ class ChartManager {
 
     constructor(json, dataManager) {
         this.json = json;
+        this._partValuesStart = 0; // Default von Anfang an
+        this._partValuesCount = this.json.data.length; // Default alles anzeigen (wird beim Änderung von ZoomFreq und MaxFreq berechnet)
+
+        this._partValuesCount = 10000;
+
+
         this.dataManager = dataManager;
         if (DEFAULT_ZOOM_FREQ) {
             this._zoom_freq = DEFAULT_ZOOM_FREQ;
@@ -422,6 +428,7 @@ class ChartManager {
     set maxFreq(freq) {
         if (this._maxFreq < freq) {
             this._maxFreq = freq;
+            this.calcPartValuesCount();
         }
     }
     get zoomFreq() { return this._zoom_freq; }
@@ -438,7 +445,43 @@ class ChartManager {
             // aber Schrittweite der Pixel sind 1 / 0.5 =  2, also 2 Pixel für diesen Wert 2, also 2 Pixel für diesen Wert
             this._zoom_freq = zoomFreq;
         }
+        this.calcPartValuesCount();
         this.createAll();
+    }
+
+    get partValuesStart() { return this._partValuesStart; }
+    set partValuesStart(partValuesStart) {
+        this._partValuesStart = partValuesStart;
+    }
+
+    get partValuesCount() { return this._partValuesCount; }
+    set partValuesCount(partValuesCount) {
+        this._partValuesCount = partValuesCount;
+    }
+
+
+    calcPartValuesCount() {
+        // Berechnet die Anzahl der angezeigten Werte anhand des Zoom's und der maximalen Frequenz
+        const freqZoomFactor = this.maxFreq / this.zoomFreq;
+        if (freqZoomFactor <= 2) {
+            // Geringer Zoom, d.h. alles anzeigen
+            this.partValuesCount = this.json.data.length; // 32 * (3600 * 8) / 16 = 57600 Pixel 
+        }
+        else if (freqZoomFactor <= 16) {
+            // Zoom Faktor zu hoch für alles, auf eine Stunde reduzieren
+            this.partValuesCount = this.maxFreq * 3600; // 32 * 3600 / 2 = 57600 Pixel
+            alert(this.partValuesCount);
+        }
+        else if (freqZoomFactor <= 128) {
+            // Zoom Faktor sehr hoch, nur noch 10 Minuten anzeigen
+            this.partValuesCount = this.maxFreq * 600; // 32 * 60 / 0.25 = 76800 Pixel Width für SVG
+            alert(this.partValuesCount);
+        }
+        else {
+            // Zoom Faktor noch höher, nur noch 1 Minuten anzeigen
+            this.partValuesCount = this.maxFreq * 60; // 32 * 60 / 0.125 = 15360 Pixel Width für SVG
+            alert(this.partValuesCount);
+        }
     }
 
     Seconds(offsetX) {
@@ -792,7 +835,7 @@ class Chart {
                         pth = line.data;
                     }
                     else {
-                        const arr = line.data.dataFunction(line.data, this.chartManager.zoomFreq, this.chartManager.maxFreq);
+                        const arr = line.data.dataFunction(this.pickLineData(line.data), this.chartManager.zoomFreq, this.chartManager.maxFreq);
                         // (e => Math.round(e * yRange + yOffset));
                         for (var p of arr) {
                             x += xStep;
@@ -823,7 +866,7 @@ class Chart {
                         pts = line.data;
                     }
                     else {
-                        var arr = line.data.dataFunction(line.data, this.chartManager.zoomFreq, this.chartManager.maxFreq);
+                        var arr = line.data.dataFunction(this.pickLineData(line.data), this.chartManager.zoomFreq, this.chartManager.maxFreq);
                         arr.forEach(y => { pts += `${x += xStep},${DIAGRAM_HEIGHT - (y * yRange + yOffset)} ` })
                     }
                     polyLine.setAttribute('points', pts.trim());
@@ -839,6 +882,34 @@ class Chart {
             this.svg.setAttribute('width', maxWidth.toString());
             console.log(`[INFO] drawLines maxWidth (=svg.width): ${maxWidth}`);
         });
+    }
+
+    pickLineData(data) {
+        /* ALTER VERSUCH - Das komplette JSON aufteilen
+        if (this.partValuesCount >= this.json.data.length) {
+            return data;
+        }
+        var returnValue = {};
+        Object.keys(this.json).forEach(k => {
+            if (k != "data") {
+                returnValue[k] = this.json[k];
+            }
+        });
+        returnValue.data = this.json.data.slice(chartManager.partValuesStart, chartManager.partValuesStart + chartManager.partValuesCount - 1);
+        return returnValue;
+        */
+        // NEUER VERSUCH - Nur die Daten der Zeile aufteilen
+        if (chartManager.partValuesCount >= data.data.length) {
+            return data;
+        }
+        var returnValue = {};
+        Object.keys(data).forEach(k => {
+            if (k != "data") {
+                returnValue[k] = data[k];
+            }
+        });
+        returnValue.data = data.data.slice(chartManager.partValuesStart, chartManager.partValuesStart + chartManager.partValuesCount);
+        return returnValue;
     }
 }
 
@@ -866,7 +937,7 @@ const dataManager =
 {
     json: null,
     dataInformation: [
-        ["Breathing", {
+        ["Nasaler Druck", { // "a"
             "dataFunction": function recalc(dataInformation, factor, maxFreq) {
                 if (factor == 0 || dataInformation.freq == 0) {
                     // Alles übergeben wenn kein Faktor oder Frequenz vorhanden
@@ -876,12 +947,12 @@ const dataManager =
                 var newData = dataManager.simpleAvg(dataInformation.data, factor, maxFreq);
                 return newData;
             },
-            "valueMin": -1000,
-            "valueMax": 1000,
+            "valueMin": -3000,
+            "valueMax": 32767,
             "usePath": false,
             "zeroLine": true
         }],
-        ["MovementX", {
+        ["Thorax", { // "b"
             "dataFunction": function recalc(dataInformation, factor, maxFreq) {
                 if (factor == 0 || dataInformation.freq == 0) {
                     // Alles übergeben wenn kein Faktor oder Frequenz vorhanden
@@ -891,12 +962,12 @@ const dataManager =
                 var newData = dataManager.simpleAvg(dataInformation.data, factor, maxFreq);
                 return newData;
             },
-            "valueMin": -1000,
-            "valueMax": 1000,
+            "valueMin": -2200,
+            "valueMax": 32767,
             "usePath": true,
             "zeroLine": true
         }],
-        ["MovementY", {
+        ["PSchnarchen", { // "c"
             "dataFunction": function recalc(dataInformation, factor, maxFreq) {
                 var x = 0;
                 if (factor == 0 || dataInformation.freq == 0) {
@@ -907,12 +978,12 @@ const dataManager =
                 var newData = dataManager.simpleAvg(dataInformation.data, factor, maxFreq);
                 return newData;
             },
-            "valueMin": -1000,
-            "valueMax": 1000,
+            "valueMin": -1400,
+            "valueMax": 17100,
             "usePath": true,
             "zeroLine": true
         }],
-        ["MovementZ", {
+        ["SpO2", { // "d"
             "dataFunction": function recalc(dataInformation, factor, maxFreq) {
                 var x = 0;
                 if (factor == 0 || dataInformation.freq == 0) {
@@ -923,12 +994,12 @@ const dataManager =
                 var newData = dataManager.simpleAvg(dataInformation.data, factor, maxFreq);
                 return newData;
             },
-            "valueMin": -1000,
-            "valueMax": 1000,
+            "valueMin": -1200,
+            "valueMax": 10000,
             "usePath": true,
             "zeroLine": true
         }],
-        ["OxSaturation", {
+        ["SpO2 B-B", { // "e"
             "dataFunction": function recalc(dataInformation, factor, maxFreq) {
                 var x = 0;
                 if (factor == 0 || dataInformation.freq == 0) {
@@ -939,12 +1010,12 @@ const dataManager =
                 var newData = dataManager.simpleAvg(dataInformation.data, factor, maxFreq);
                 return newData;
             },
-            "valueMin": 0,
-            "valueMax": 5,
+            "valueMin": -1700,
+            "valueMax": 12000,
             "usePath": true,
             "zeroLine": false
         }],
-        ["Pulse", {
+        ["Pulsrate", { // "f"
             "dataFunction": function recalc(dataInformation, factor, maxFreq) {
                 var x = 0;
                 if (factor == 0 || dataInformation.freq == 0) {
@@ -955,8 +1026,40 @@ const dataManager =
                 var newData = dataManager.simpleAvg(dataInformation.data, factor, maxFreq);
                 return newData;
             },
-            "valueMin": 0,
-            "valueMax": 10,
+            "valueMin": -1700,
+            "valueMax": 12000,
+            "usePath": false,
+            "zeroLine": false
+        }],
+        ["Plethysmogramm", { // "g"
+            "dataFunction": function recalc(dataInformation, factor, maxFreq) {
+                var x = 0;
+                if (factor == 0 || dataInformation.freq == 0) {
+                    // Alles übergeben wenn kein Faktor oder Frequenz vorhanden
+                    return dataInformation.data;
+                }
+                // Interpolierung zur y-Größe der Diagramme erfolgt beim zeichnen
+                var newData = dataManager.simpleAvg(dataInformation.data, factor, maxFreq);
+                return newData;
+            },
+            "valueMin": -3400,
+            "valueMax": 32767,
+            "usePath": false,
+            "zeroLine": false
+        }],
+        ["Aktivitaet", { // "h"
+            "dataFunction": function recalc(dataInformation, factor, maxFreq) {
+                var x = 0;
+                if (factor == 0 || dataInformation.freq == 0) {
+                    // Alles übergeben wenn kein Faktor oder Frequenz vorhanden
+                    return dataInformation.data;
+                }
+                // Interpolierung zur y-Größe der Diagramme erfolgt beim zeichnen
+                var newData = dataManager.simpleAvg(dataInformation.data, factor, maxFreq);
+                return newData;
+            },
+            "valueMin": -1300,
+            "valueMax": 24000,
             "usePath": false,
             "zeroLine": false
         }]
@@ -1563,7 +1666,8 @@ function resizeMark(nr) {
 
 
 async function start() {
-    let load = await (fetch("./all.json"));
+    //let load = await (fetch("./all.json"));
+    let load = await (fetch("./kurven.json"));
     let json = await load.json();
     // --------------------------------  Fuckup Point -------------------------------- 
     const usedDataManager = dataManager;
@@ -1574,6 +1678,8 @@ async function start() {
     // ------------------------------  END Fuckup Point ------------------------------ 
 
     var chart1 = chartManager.addChart();
+    // all.json
+    /*
     chartManager.addHorizontalScale({ before: chart1, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Bottom });
     chart1.addLine("000000", "Breathing");
     var chart2 = chartManager.addChart();
@@ -1593,6 +1699,33 @@ async function start() {
 
     chartManager.addHorizontalScale({ before: chart3, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Center });
     chartManager.addHorizontalScale({ after: chart4, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Top });
+    */
+
+    // kurven.json
+    chartManager.addHorizontalScale({ before: chart1, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Bottom });
+    chart1.addLine("000000", "Nasaler Druck");
+
+    var chart2 = chartManager.addChart();
+    chart2.addLine("000000", "Thorax");
+
+    var chart3 = chartManager.addChart();
+    chart3.addLine("000000", "PSchnarchen")
+
+    var chart4 = chartManager.addChart();
+    chart4.addLine("FF0000", "SpO2");
+    chart4.addLine("00FF00", "SpO2 B-B");
+
+    var chart5 = chartManager.addChart();
+    chart5.addLine("000000", "Pulsrate");
+
+    var chart6 = chartManager.addChart();
+    chart6.addLine("000000", "Plethysmogramm");
+
+    var chart7 = chartManager.addChart();
+    chart7.addLine("000000", "Aktivitaet");
+
+    chartManager.addHorizontalScale({ before: chart4, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Center });
+    chartManager.addHorizontalScale({ after: chart7, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Top });
 
     chartManager.createAll();
     loadMarks();
@@ -1754,7 +1887,7 @@ class HorizontalScale {
         }
         else if (this.align == HSCALE_ALIGNMENTS.Top) {
             rect.setAttribute('y', 0);
-            textYPos = this.height;
+            textYPos = this.height + 5;
             textYFactor = -1;
         }
         else if (this.align == HSCALE_ALIGNMENTS.Center) {
