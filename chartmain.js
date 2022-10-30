@@ -1,4 +1,5 @@
-const DEFAULT_ZOOM_FREQ = 1 * 64;
+//  const DEFAULT_ZOOM_FREQ = 1 * 64;   // Zoomfaktor Default (Anzahl Messwerte je Pixel)
+const DEFAULT_ZOOM_FREQ = null;         // Zoomfaktor wird berechnet für vollansicht (Anzahl Messwerte / Window.Width)
 const DIAGRAM_HEIGHT = 150;
 const SELECTION_COLOR = "#0000FF";
 const SELECTION_OPACITY = 0.5;
@@ -25,6 +26,15 @@ const HORIZONTAL_SCALE_HEIGHT = 60;
 //const HORIZONTAL_SCALE_BACKGROUND = "#FF0000"; // eigentlich #AAAAAA
 const HORIZONTAL_SCALE_BACKGROUND = "#dddddd"; // eigentlich #333333
 const HSCALE_TEXT_COLOR = "#000000";
+const HSCALE_MIN_PIXEL_DISTANCE_X = 5;
+const HSCALE_ALIGNMENTS = {
+    Top: "top",
+    Bottom: "bottom",
+    Center: "center"
+}
+const HORIZONTAL_SCALE_CAPTION_MINDIST_X = 60;
+//const HORIZONTAL_SCAPE_CAPTION_FONTSIZE = "0.8em";
+const HORIZONTAL_SCAPE_CAPTION_FONTSIZE = "12px";
 
 
 var chartManager;
@@ -35,7 +45,14 @@ class ChartManager {
     constructor(json, dataManager) {
         this.json = json;
         this.dataManager = dataManager;
-        this._zoom_freq = DEFAULT_ZOOM_FREQ;
+        if (DEFAULT_ZOOM_FREQ) {
+            this._zoom_freq = DEFAULT_ZOOM_FREQ;
+        }
+        else {
+            const valueCount = this.json.data.length;
+            const width = window.innerWidth - 15;
+            this._zoom_freq = valueCount / width;
+        }
         this.charts = [];
         this._maxFreq = 0;
         this._dialogNr = 0;         // Fortlaufende Nummer zur identifikation neuer Dialoge
@@ -45,45 +62,59 @@ class ChartManager {
         this.HScaleRanges = [       // die Bereiche, die in der Horizontalen Skala dargestellt werden können
             {
                 seconds: 3600,      // Stundenabstände
-                text: 1,             // jede Markierung mit Beschriftung
-                height: 90,
+                minPixelDistForText: HORIZONTAL_SCALE_CAPTION_MINDIST_X,         // Minimum Abstand zwischen 2 Beschriftungen in Pixel
+                height: 80,
                 color: "#000000",
-                width: 1
+                width: 1,
+                drawText: false
+            },
+            {
+                seconds: 1800,       // 30 Minuten
+                minPixelDistForText: HORIZONTAL_SCALE_CAPTION_MINDIST_X,         // Minimum Abstand zwischen 2 Beschriftungen in Pixel
+                height: 75,
+                color: "#000000",
+                width: 1,
+                drawText: false
             },
             {
                 seconds: 600,       // 10 Minuten
-                text: 3,            // jede dritte Markierung mit Beschriftung
+                minPixelDistForText: HORIZONTAL_SCALE_CAPTION_MINDIST_X,         // Minimum Abstand zwischen 2 Beschriftungen in Pixel
                 height: 70,
                 color: "#000000",
-                width: 1
+                width: 1,
+                drawText: false
             },
             {
                 seconds: 300,       // 5 Minuten
-                text: 0,            // keine Beschriftung
+                minPixelDistForText: HORIZONTAL_SCALE_CAPTION_MINDIST_X,         // Minimum Abstand zwischen 2 Beschriftungen in Pixel
                 height: 50,
                 color: "#000000",
-                width: 0.8
+                width: 0.8,
+                drawText: false
             },
             {
                 seconds: 60,        // 1 Minute
-                text: 0,            // keine Beschriftung
+                minPixelDistForText: HORIZONTAL_SCALE_CAPTION_MINDIST_X,         // Minimum Abstand zwischen 2 Beschriftungen in Pixel
                 height: 30,
                 color: "#000000",
-                width: 0.6
+                width: 0.6,
+                drawText: false
             },
             {
                 seconds: 10,        // 10 Sekunden
-                text: 0,
+                minPixelDistForText: HORIZONTAL_SCALE_CAPTION_MINDIST_X,         // Minimum Abstand zwischen 2 Beschriftungen in Pixel
                 height: 20,
                 color: "#000000",
-                width: 0.4
+                width: 0.4,
+                drawText: false
             },
             {
                 seconds: 1,         // 1 Sekunde
-                text: 0,
+                minPixelDistForText: HORIZONTAL_SCALE_CAPTION_MINDIST_X,         // Minimum Abstand zwischen 2 Beschriftungen in Pixel
                 height: 10,
                 color: "#000000",
-                width: 0.2
+                width: 0.2,
+                drawText: false
             }
         ]
         this._resizeData = {        // Zum verarbeiten von Resize (MouseDown...MouseMove...MouseUp)
@@ -316,8 +347,8 @@ class ChartManager {
         this.div = areawrapperDIV;
     }
 
-    addHorizontalScale({ before, after, height }) {
-        var hs = new HorizontalScale({ before, after, height });
+    addHorizontalScale({ before, after, height, align }) {
+        var hs = new HorizontalScale({ before, after, height, align });
         this._horizontalScale.push(hs);
         return hs;
     }
@@ -343,6 +374,12 @@ class ChartManager {
         const valuesPerSecond = this.maxFreq;
         const valuesTotal = valuesPerSecond * seoncds;
         return valuesTotal;
+    }
+    calcSecondsFromPixel(pixel) {
+        const valuesPerPixel = this.zoomFreq;
+        const valuesTotal = valuesPerPixel * pixel;
+        const secondsTotal = valuesTotal / this.maxFreq;
+        return secondsTotal;
     }
 
     nextDialogNr() {
@@ -522,12 +559,12 @@ function doZoom() {
     const clientWidth = chartManager.div.getBoundingClientRect().width;
     const newZoom = selectionValues / clientWidth;
 
-    // Calculate new Position (scroll)
-    const newPos = chartManager.clickStatus.left * zoomXValuesFor1Pixel / newZoom;
 
     chartManager.zoomFreq = newZoom;
+    // Calculate new Position (scroll)
+    const newPos = chartManager.clickStatus.left * zoomXValuesFor1Pixel / chartManager.zoomFreq;
     chartManager.div.scroll(newPos, 0);
-    OUT(newZoom);
+    OUT(chartManager.zoomFreq);
 }
 function doNote(x, y) {
     var svg = chartManager.clickStatus.clickChart.svg;
@@ -649,21 +686,28 @@ function createPath() {
 function createButton() {
     return document.createElement('button');
 }
+function secondFormat(seconds, format) {
+    var sec = Math.floor(seconds);
+    var ms = (seconds - sec) * 1000;
+    var date = new Date(2020, 0, 1, 0, 0, sec, ms);
+    return dateFormat(date, format);
+}
 function dateFormat(date, format) {
-    /* Formats:
-        dd      Day     like 05
-        d       Day     like 5
-        mm      Month   like 09
-        m       Month   like 9
-        yy      Year    like 22
-        yyyy    Year    like 2022
-        hh      Hour    like 07
-        h       Hour    like 7
-        HH      Hour    like 19
-        MM      Minute  like 07
-        M       Minute  like 7
-        SS      Second  like 07
-        S       Second  like 7
+    /* Formats
+        dd      Day             like 0
+        d       Day             like 
+        mm      Month           like 0
+        m       Month           like 
+        yy      Year            like 2
+        yyyy    Year            like 20
+        hh      Hour            like 07
+        h       Hour            like 7
+        HH      Hour            like 19
+        MM      Minute          like 07
+        M       Minute          like 7
+        SS      Second          like 07
+        S       Second          like 7
+        XX      Milliseconds    like 7
     */
 
     var res = format;
@@ -675,6 +719,7 @@ function dateFormat(date, format) {
     res = res.replace('HH', ('0' + date.getHours()).slice(-2));
     res = res.replace('MM', ('0' + date.getMinutes()).slice(-2));
     res = res.replace('SS', ('0' + date.getSeconds()).slice(-2));
+    res = res.replace('XX', (date.getMilliseconds()));
 
     return res;
 }
@@ -1529,7 +1574,7 @@ async function start() {
     // ------------------------------  END Fuckup Point ------------------------------ 
 
     var chart1 = chartManager.addChart();
-    chartManager.addHorizontalScale({ before: chart1, height: HORIZONTAL_SCALE_HEIGHT });
+    chartManager.addHorizontalScale({ before: chart1, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Bottom });
     chart1.addLine("000000", "Breathing");
     var chart2 = chartManager.addChart();
     chart2.addLine("FF0000", "MovementX");
@@ -1546,7 +1591,8 @@ async function start() {
     }
     chart4.addLine("FF0000", "Pulse");
 
-    chartManager.addHorizontalScale({ after: chart4, height: HORIZONTAL_SCALE_HEIGHT });
+    chartManager.addHorizontalScale({ before: chart3, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Center });
+    chartManager.addHorizontalScale({ after: chart4, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Top });
 
     chartManager.createAll();
     loadMarks();
@@ -1566,13 +1612,14 @@ function loadMarks() {
 }
 
 class HorizontalScale {
-    constructor({ before, after, height }) {
+    constructor({ before, after, height, align }) {
         this.before = before;
         this.after = after;
         this.height = height;
         this.rect = null;
         this.div = null;
         this.svg = null;
+        this.align = align;
     }
 
     create() {
@@ -1600,6 +1647,16 @@ class HorizontalScale {
 
             this.svg.appendChild(this.rect);
         }
+        else {
+            this.svg.setAttribute('width', width);
+            this.svg.setAttribute('height', this.height);
+
+            this.rect.setAttribute('x', 0);
+            this.rect.setAttribute('y', 0);
+            this.rect.setAttribute('width', width);
+            this.rect.setAttribute('height', this.height);
+            this.rect.setAttribute("fill", HORIZONTAL_SCALE_BACKGROUND);
+        }
         if (this.before) {
             chartManager.div.insertBefore(this.div, this.before.div);
         }
@@ -1621,57 +1678,109 @@ class HorizontalScale {
         this.draw();
     }
     draw() {
+        const svg = this.svg;
+        // Alle vorhandenen Elemente aus der Skala (SVG) löschen
+        while (svg.childNodes.length > 0) svg.removeChild(svg.firstChild);
+
+        // Linie 0 (ganz links) als Start immer voll gezeichnet
         this.line(0, 100, null, "#000000", 1);
-        chartManager.HScaleRanges.forEach(range => {
-            const sec = range.seconds;
-            const pixelsPerSeconds = chartManager.calcPixelsForSeconds(sec);
-            if (pixelsPerSeconds >= 5) {
-                // Mindestens 5 Pixel Abstand pro Skala-Linie muss sein da sie sonnst zu eng gezeichnet wird
-                const textNr = range.text;
+
+        const svgWidth = svg.getAttribute('width');
+        const secondsPerPixel = chartManager.calcSecondsFromPixel(1);
+
+        // Alle Skala-Einheiten (1s, 10s, 1m, 5m...) durchlaufen und prüfen, ob für diese die Beschriftung erstellt werden muss
+        chartManager.HScaleRanges.forEach(h => {
+            h.drawText = (chartManager.calcPixelsForSeconds(h.seconds) >= h.minPixelDistForText);
+        });
+
+        // Nun die Schrittweite (Pixel) berechnen:
+        // 1. geplante Mindestanstandbreite (x Pixel) nutzen um die Sekunden dafür auszurechnen (z.B. 5 Pixel = 77 Sekunden)
+        var secondsPerMinDist = HSCALE_MIN_PIXEL_DISTANCE_X * secondsPerPixel;
+        // Ist man unter 1 Sekunde, dann 1 Sekunde als mindest Abstand verwenden
+        if (secondsPerMinDist < 1) {
+            secondsPerMinDist = 1;
+        }
+        // 2. passende Skala-Range für diese Sekundenzahl ermitteln (z.B. 77 Sekunden -> Skala Range für 60 Sekunden)
+        const stepRange = chartManager.HScaleRanges.find(h => secondsPerMinDist >= h.seconds);
+        // 3. Schrittweite für diese Skala-Range (60 Sekunden = z.B. 3.5 Pixel) ermitteln
+        const pixelStep = stepRange.seconds / secondsPerPixel;
+
+        // Startwerte initialisieren
+        var posX = pixelStep;
+        var actualSecond = stepRange.seconds;
+
+        while (posX < svgWidth) {
+            var roundedSeconds = Math.round(actualSecond);
+            // Skala-Range für die aktuelle Zeit (gerundet) suchen
+            // Es wird immer eine Skala-Range genommen, die in der aktuellen Zeit passt 
+            // Also Aktuelle Zeit z.B. 8400 Sekunden = 02:20:00 / 1 Stunde hat einen Rest
+            //                                                  / 10 Minuten hat keinen Rest, diese wird verwendet
+            const range = chartManager.HScaleRanges.find(d => roundedSeconds % d.seconds == 0);
+            if (range) {
+                // passende Range gefunden -> Linie zeichnen
                 const lineHeight = range.height;
                 const color = range.color;
                 const lineWidth = range.width;
-
-                const svg = this.svg;
-                const svgWidth = svg.getAttribute('width');
-
-                var actualPosition_seconds = sec;
-                var pixelPos = chartManager.calcPixelsForSeconds(actualPosition_seconds);
-                while (pixelPos < svgWidth) {
-                    this.line(pixelPos, lineHeight, "", color, lineWidth);
-                    actualPosition_seconds += sec;
-                    pixelPos = chartManager.calcPixelsForSeconds(actualPosition_seconds);
+                if (range.drawText) {
+                    // falls vorher ermittelt wurde, das diese Range genug Abstand (X-Pixel) hat, dann auch eine Beschriftung hinzufügen
+                    const text = secondFormat(actualSecond, "HH:MM:SS");
+                    this.line(posX, lineHeight, text, color, lineWidth);
                 }
-            }
+                else {
+                    // andernfalls nur die Linie
+                    this.line(posX, lineHeight, "", color, lineWidth);
+                }
 
-        })
+                posX += pixelStep;
+                actualSecond += stepRange.seconds;
+            }
+            else {
+                // Wurde keine passende Range gefunden (darf eigentlich nicht vorkommen, da die pixelStep ja vorher ermittelt wurde)
+                // dann EINEN Pixel weiter erneut versuchen
+                posX++;
+                actualSecond += secondsPerPixel;
+            }
+        }
     }
     line(x, heightPercent, text, color, width) {
-        var height = (this.height / 100 * heightPercent) / 2; // Halb weil von der Mitte nach oben und nach unten
+        var height = (this.height / 100 * heightPercent); // Halb weil von der Mitte nach oben und nach unten
         var center = this.height / 2;
-        var line = createLine();
-        var x1 = x;
-        var y1 = center - height;
-        var x2 = x;
-        var y2 = center + height;
-
-        line.setAttribute('x1', x1);
-        line.setAttribute('y1', y1);
-        line.setAttribute('x2', x2);
-        line.setAttribute('y2', y2);
-        line.setAttribute('style', `stroke:${color}; stroke-width:${width}`);
-
-        this.svg.appendChild(line);
+        var rect = createRect();
+        rect.setAttribute('x', x);
+        var textYPos = 2;
+        var textYFactor = 1;
+        if (this.align == HSCALE_ALIGNMENTS.Bottom) {
+            rect.setAttribute('y', this.height - height);
+        }
+        else if (this.align == HSCALE_ALIGNMENTS.Top) {
+            rect.setAttribute('y', 0);
+            textYPos = this.height;
+            textYFactor = -1;
+        }
+        else if (this.align == HSCALE_ALIGNMENTS.Center) {
+            rect.setAttribute('y', (this.height / 2) - (height / 2));
+            textYPos = this.height / 2;
+            textYFactor = 0.5;
+        }
+        else {
+            throw new Error(`[ERROR] Unknown alignment for HScale: ${align}`);
+        }
+        rect.setAttribute('width', width);
+        rect.setAttribute('height', height);
+        rect.setAttribute("fill", color);
+        this.svg.appendChild(rect);
         if (text && text != "") {
             var txt = createText();
-
-            txt.setAttribute('x', x1);
-            txt.setAttribute('y', 15);
+            txt.setAttribute('x', x);
+            txt.setAttribute('y', textYPos);
             txt.setAttribute('dest', "title");
+            txt.setAttribute('font-size', HORIZONTAL_SCAPE_CAPTION_FONTSIZE);
 
             txt.innerHTML = text;
             txt.setAttribute('fill', HSCALE_TEXT_COLOR);
             this.svg.appendChild(txt);
+            txt.setAttribute('x', x - (txt.getBoundingClientRect().width / 2));
+            txt.setAttribute('y', textYPos + ((txt.getBoundingClientRect().height / 2) * textYFactor));
         }
     }
 
