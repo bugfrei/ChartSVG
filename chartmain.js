@@ -841,8 +841,7 @@ class Chart {
         cursorLine.setAttribute("fill", "#000000");
         this.svg.appendChild(cursorLine);
         this.cursorLine = cursorLine;
-        //var drawZeroLine = this.zeroLine;
-        var drawZeroLine = false;
+        var drawZeroLine = this.zeroLine;
 
         // xStep: Schrittweite für 1 Messwert. Ist der Zoom >= 1 (d.h. exakt 1 oder mehr Datenwerte liefern 1 Pixel im Diagramm)
         //        dann ist xStep immer 1 (X Werte = 1 Pixel).
@@ -917,18 +916,19 @@ class Chart {
             }
 
             if (drawZeroLine) {
+                const { color, opacity, height } = drawZeroLine;
                 var zeroLineWidth = this.svg.getAttribute("width");
                 const zeroLineTotalPoints = line.data.valueMax - line.data.valueMin; // alle -> 100%
-                const zeroLineYPercent = 1 / zeroLineTotalPoints * this.data.valueMax; // Max-Wert in x%
-                const zeroLineY = DIAGRAM_HEIGHT * zeroLineYPercent;  // Diagrammhöhe x% = Y Position der Null-Linie
+                const zeroLineYPercent = 1 / zeroLineTotalPoints * line.data.valueMax; // Max-Wert in x%
+                const zeroLineY = (DIAGRAM_HEIGHT * zeroLineYPercent) - (height / 2);  // Diagrammhöhe x% = Y Position der Null-Linie
 
                 var zeroLine = createRect();
                 zeroLine.setAttribute('x', 0);
                 zeroLine.setAttribute('y', zeroLineY);
                 zeroLine.setAttribute('width', zeroLineWidth);
-                zeroLine.setAttribute('height', 1);
-                zeroLine.setAttribute("fill", "#000000");
-                zeroLine.setAttribute("opacity", 0.5);
+                zeroLine.setAttribute('height', height);
+                zeroLine.setAttribute("fill", color);
+                zeroLine.setAttribute("opacity", opacity);
                 this.svg.appendChild(zeroLine);
             }
 
@@ -1003,7 +1003,7 @@ const dataManager =
             "valueMin": -3000,
             "valueMax": 32767,
             "usePath": true,
-            "zeroLine": true
+            "zeroLine": { color: "#FF0000", opacity: 0.5, height: 2 }
         }],
         ["Thorax", { // "b"
             "dataFunction": function recalc(dataInformation, factor, maxFreq) {
