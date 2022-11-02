@@ -1,7 +1,7 @@
 //  const DEFAULT_ZOOM_FREQ = 1 * 64;   // Zoomfaktor Default (Anzahl Messwerte je Pixel)
 const DEFAULT_ZOOM_FREQ = null;         // Zoomfaktor wird berechnet für vollansicht (Anzahl Messwerte / Window.Width)
 //const DIAGRAM_HEIGHT = 88;
-const DIAGRAM_HEIGHT = 150;
+const DIAGRAM_HEIGHT = 80;
 const SELECTION_COLOR = "#0000FF";
 const SELECTION_OPACITY = 0.5;
 const SELECTION_TITELCOLOR = "#FF0000";
@@ -916,19 +916,21 @@ class Chart {
             }
 
             if (drawZeroLine) {
-                const { color, opacity, height } = drawZeroLine;
+                const { color, opacity, height, style } = drawZeroLine;
                 var zeroLineWidth = this.svg.getAttribute("width");
                 const zeroLineTotalPoints = line.data.valueMax - line.data.valueMin; // alle -> 100%
                 const zeroLineYPercent = 1 / zeroLineTotalPoints * line.data.valueMax; // Max-Wert in x%
                 const zeroLineY = (DIAGRAM_HEIGHT * zeroLineYPercent) - (height / 2);  // Diagrammhöhe x% = Y Position der Null-Linie
 
-                var zeroLine = createRect();
-                zeroLine.setAttribute('x', 0);
-                zeroLine.setAttribute('y', zeroLineY);
-                zeroLine.setAttribute('width', zeroLineWidth);
-                zeroLine.setAttribute('height', height);
-                zeroLine.setAttribute("fill", color);
-                zeroLine.setAttribute("opacity", opacity);
+                // <line x1="0" y1="0" x2="200" y2="200" style="stroke:rgb(255,0,0);stroke-width:2" />
+
+                var zeroLine = createLine();
+                zeroLine.setAttribute("x1", 0);
+                zeroLine.setAttribute("y1", zeroLineY);
+                zeroLine.setAttribute("x2", zeroLineWidth);
+                zeroLine.setAttribute("y2", zeroLineY);
+                zeroLine.setAttribute("style", `stroke:${color}; stroke-width:${height}; opacity:${opacity};${style}`);
+
                 this.svg.appendChild(zeroLine);
             }
 
@@ -1003,7 +1005,7 @@ const dataManager =
             "valueMin": -3000,
             "valueMax": 32767,
             "usePath": true,
-            "zeroLine": { color: "#FF0000", opacity: 0.5, height: 2 }
+            "zeroLine": { color: "#FF0000", opacity: 0.3, height: 1, style: '' }
         }],
         ["Thorax", { // "b"
             "dataFunction": function recalc(dataInformation, factor, maxFreq) {
@@ -1018,7 +1020,7 @@ const dataManager =
             "valueMin": -2200,
             "valueMax": 32767,
             "usePath": true,
-            "zeroLine": true
+            "zeroLine": { color: "#FF0000", opacity: 0.3, height: 1, style: '' }
         }],
         ["PSchnarchen", { // "c"
             "dataFunction": function recalc(dataInformation, factor, maxFreq) {
@@ -1034,7 +1036,7 @@ const dataManager =
             "valueMin": -1400,
             "valueMax": 17100,
             "usePath": true,
-            "zeroLine": true
+            "zeroLine": { color: "#FF0000", opacity: 0.3, height: 1, style: '' }
         }],
         ["SpO2", { // "d"
             "dataFunction": function recalc(dataInformation, factor, maxFreq) {
@@ -1050,7 +1052,7 @@ const dataManager =
             "valueMin": -1200,
             "valueMax": 10000,
             "usePath": true,
-            "zeroLine": true
+            "zeroLine": { color: "#FF0000", opacity: 0.3, height: 1, style: '' }
         }],
         ["SpO2 B-B", { // "e"
             "dataFunction": function recalc(dataInformation, factor, maxFreq) {
@@ -1783,7 +1785,7 @@ async function start() {
     var chart7 = chartManager.addChart();
     chart7.addLine("000000", "Aktivitaet");
 
-    chartManager.addHorizontalScale({ before: chart4, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Center });
+    //chartManager.addHorizontalScale({ before: chart4, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Center });
     chartManager.addHorizontalScale({ after: chart7, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Top });
 
     chartManager.createAll();
