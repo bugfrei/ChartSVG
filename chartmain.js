@@ -1,5 +1,6 @@
 //  const DEFAULT_ZOOM_FREQ = 1 * 64;   // Zoomfaktor Default (Anzahl Messwerte je Pixel)
 const DEFAULT_ZOOM_FREQ = null;         // Zoomfaktor wird berechnet für vollansicht (Anzahl Messwerte / Window.Width)
+//const DIAGRAM_HEIGHT = 88;
 const DIAGRAM_HEIGHT = 150;
 const SELECTION_COLOR = "#0000FF";
 const SELECTION_OPACITY = 0.5;
@@ -47,16 +48,13 @@ class ChartManager {
         this._partValuesStart = 0; // Default von Anfang an
         this._partValuesCount = this.json.data.length; // Default alles anzeigen (wird beim Änderung von ZoomFreq und MaxFreq berechnet)
 
-        this._partValuesCount = 10000;
-
-
         this.dataManager = dataManager;
         if (DEFAULT_ZOOM_FREQ) {
             this._zoom_freq = DEFAULT_ZOOM_FREQ;
         }
         else {
             const valueCount = this.json.data.length;
-            const width = window.innerWidth - 15;
+            const width = window.innerWidth - 30;
             this._zoom_freq = valueCount / width;
         }
         this.charts = [];
@@ -65,6 +63,7 @@ class ChartManager {
         this._dialogs = [];         // Auflistung der Dialoge
         this._marks = [];           // Auflistung der Markierungen (egal ob Arzt oder ML)
         this._horizontalScale = []; // Auflistung der horizontalen Skalas (in der Regel nur eine für oben)
+        this.horizontalScaleShowsTime = false;   // Zeigt die Skala die Uhrzeit (true) oder die Zeitdifferenz (false)
         this.HScaleRanges = [       // die Bereiche, die in der Horizontalen Skala dargestellt werden können
             {
                 seconds: 3600,      // Stundenabstände
@@ -201,6 +200,9 @@ class ChartManager {
                         this.click2OffsetX = x2;
                     }
 
+                    // Elementhöhe berechnen
+                    const elementHeight = DIAGRAM_HEIGHT / 5; // 3 Elemente und etwas Abstand
+
                     this.selectionRect.setAttribute('x', x1);
                     this.selectionRect.setAttribute('width', x2 - x1);
                     // Titel
@@ -209,7 +211,7 @@ class ChartManager {
                     anchor.setAttribute('x', x1 + 10);
                     anchor.setAttribute('y', 10);
                     anchor.setAttribute('width', x2 - x1 - 20);
-                    anchor.setAttribute('height', 20);
+                    anchor.setAttribute('height', elementHeight);
                     anchor.setAttribute('dest', "title");
                     this.clickChart.svg.appendChild(anchor);
 
@@ -217,20 +219,22 @@ class ChartManager {
                     title.setAttribute('x', x1 + 10);
                     title.setAttribute('y', 10);
                     title.setAttribute('width', x2 - x1 - 20);
-                    title.setAttribute('height', 20);
+                    title.setAttribute('height', elementHeight);
                     title.setAttribute('fill', SELECTION_TITELCOLOR);
                     title.setAttribute('fill-opacity', SELECTION_TITLEOPACITY);
                     title.setAttribute('dest', "title");
 
                     let text = createText();
                     text.setAttribute('x', x1 + 20);
-                    text.setAttribute('y', 25);
+                    text.setAttribute('y', 10 + (elementHeight * 0.85));
                     text.setAttribute('dest', "title");
+                    text.setAttribute('font-size', elementHeight);
                     this.clickChart.svg.appendChild(anchor);
                     const time = dateFormat(chartManager.Time(x1), "HH:MM:SS");
-                    const seconds = chartManager.Seconds(x2 - x1);
+                    const seconds = chartManager.Seconds(x2 - x1) - (chartManager.partValuesStart / chartManager.maxFreq);
+                    const secondsStr = secondFormat(seconds, "HH:MM:SS");
 
-                    text.innerHTML = time + ` (${seconds} s)`; // TODO i18n Zeitformat!
+                    text.innerHTML = time + ` (${secondsStr})`; // TODO i18n Zeitformat!
                     text.setAttribute('fill', 'black');
 
                     //this.clickChart.svg.appendChild(title);
@@ -239,28 +243,30 @@ class ChartManager {
                     this.selectionElements.push(anchor);
 
                     // Zoom
+                    var elementYPos = 10 + (elementHeight * 1.5);
                     anchor = createAnchor();
                     anchor.setAttribute('href', 'javascript:doZoom();');
                     anchor.setAttribute('x', x1 + 10);
-                    anchor.setAttribute('y', DIAGRAM_HEIGHT - 80);
+                    anchor.setAttribute('y', elementYPos);
                     anchor.setAttribute('width', x2 - x1 - 20);
-                    anchor.setAttribute('height', 20);
+                    anchor.setAttribute('height', elementHeight);
                     anchor.setAttribute('dest', "title");
                     this.clickChart.svg.appendChild(anchor);
 
                     title = createRect();
                     title.setAttribute('x', x1 + 10);
-                    title.setAttribute('y', DIAGRAM_HEIGHT - 80);
+                    title.setAttribute('y', elementYPos);
                     title.setAttribute('width', x2 - x1 - 20);
-                    title.setAttribute('height', 20);
+                    title.setAttribute('height', elementHeight);
                     title.setAttribute('fill', SELECTION_ZOOMCOLOR);
                     title.setAttribute('fill-opacity', SELECTION_ZOOMOPACITY);
                     title.setAttribute('dest', "title");
 
                     text = createText();
                     text.setAttribute('x', x1 + 20);
-                    text.setAttribute('y', DIAGRAM_HEIGHT - 65);
+                    text.setAttribute('y', elementYPos + (elementHeight * 0.85));
                     text.setAttribute('dest', "title");
+                    text.setAttribute('font-size', elementHeight);
                     this.clickChart.svg.appendChild(anchor);
 
                     text.innerHTML = `Zoom`;  // TODO i18n
@@ -273,31 +279,33 @@ class ChartManager {
                     text.setAttribute('x', x1 + 10 + (x2 - x1 - 20) / 2 - (text.getBoundingClientRect().width / 2));
 
                     // Note
+                    elementYPos = 10 + (elementHeight * 3);
                     var yPos = this.mouseData.clientY;
                     var xPos = this.mouseData.clientX;
                     //var yPos = this.clickChart.svg.parentElement.offsetTop + this.clickChart.svg.parentElement.parentElement.parentElement.offsetTop + DIAGRAM_HEIGHT;
                     anchor = createAnchor();
                     anchor.setAttribute('href', `javascript:doNote(${xPos}, ${yPos});`);
                     anchor.setAttribute('x', x1 + 10);
-                    anchor.setAttribute('y', DIAGRAM_HEIGHT - 50);
+                    anchor.setAttribute('y', elementYPos);
                     anchor.setAttribute('width', x2 - x1 - 20);
-                    anchor.setAttribute('height', 20);
+                    anchor.setAttribute('height', elementHeight);
                     anchor.setAttribute('dest', "title");
                     this.clickChart.svg.appendChild(anchor);
 
                     title = createRect();
                     title.setAttribute('x', x1 + 10);
-                    title.setAttribute('y', DIAGRAM_HEIGHT - 50);
+                    title.setAttribute('y', elementYPos);
                     title.setAttribute('width', x2 - x1 - 20);
-                    title.setAttribute('height', 20);
+                    title.setAttribute('height', elementHeight);
                     title.setAttribute('fill', SELECTION_NOTECOLOR);
                     title.setAttribute('fill-opacity', SELECTION_NOTEOPACITY);
                     title.setAttribute('dest', "title");
 
                     text = createText();
                     text.setAttribute('x', x1 + 20);
-                    text.setAttribute('y', DIAGRAM_HEIGHT - 35);
+                    text.setAttribute('y', elementYPos + (elementHeight * 0.85));
                     text.setAttribute('dest', "title");
+                    text.setAttribute('font-size', elementHeight);
                     this.clickChart.svg.appendChild(anchor);
 
                     text.innerHTML = `Markierung`; // TODO i18n
@@ -460,32 +468,42 @@ class ChartManager {
     }
 
 
-    calcPartValuesCount() {
+    calcPartValuesCount(zoomFreq, maxFreq) {
+        if (!zoomFreq) zoomFreq = this.zoomFreq;
+        if (!maxFreq) maxFreq = this.maxFreq;
+
         // Berechnet die Anzahl der angezeigten Werte anhand des Zoom's und der maximalen Frequenz
-        const freqZoomFactor = this.maxFreq / this.zoomFreq;
-        if (freqZoomFactor <= 2) {
+        const freqZoomFactor = maxFreq / zoomFreq;
+        if (freqZoomFactor <= 1.9) {
             // Geringer Zoom, d.h. alles anzeigen
             this.partValuesCount = this.json.data.length; // 32 * (3600 * 8) / 16 = 57600 Pixel 
+        }
+        else if (freqZoomFactor <= 4) {
+            // Zoom Faktor zu hoch für alles, auf zwei Stunde reduzieren
+            this.partValuesCount = this.maxFreq * 3600 * 2;
+            console.log(`[INFO] PartValuesCount = ${this.partValuesCount / 60} min.`);
+
         }
         else if (freqZoomFactor <= 16) {
             // Zoom Faktor zu hoch für alles, auf eine Stunde reduzieren
             this.partValuesCount = this.maxFreq * 3600; // 32 * 3600 / 2 = 57600 Pixel
-            alert(this.partValuesCount);
+            console.log(`[INFO] PartValuesCount = ${this.partValuesCount / 60} min.`);
+
         }
         else if (freqZoomFactor <= 128) {
             // Zoom Faktor sehr hoch, nur noch 10 Minuten anzeigen
             this.partValuesCount = this.maxFreq * 600; // 32 * 60 / 0.25 = 76800 Pixel Width für SVG
-            alert(this.partValuesCount);
+            console.log(`[INFO] PartValuesCount = ${this.partValuesCount / 60} min.`);
         }
         else {
             // Zoom Faktor noch höher, nur noch 1 Minuten anzeigen
             this.partValuesCount = this.maxFreq * 60; // 32 * 60 / 0.125 = 15360 Pixel Width für SVG
-            alert(this.partValuesCount);
+            console.log(`[INFO] PartValuesCount = ${this.partValuesCount / 60} min.`);
         }
     }
 
     Seconds(offsetX) {
-        return offsetX * this.zoomFreq / this.maxFreq;
+        return ((offsetX * this.zoomFreq) + chartManager.partValuesStart) / this.maxFreq;
     }
     Time(offsetX) {
         // TimeStampStart ist kein Unix Timestamp sondern das 1000 fache (also nanosekunden seit...) Daher / 1000
@@ -602,10 +620,21 @@ function doZoom() {
     const clientWidth = chartManager.div.getBoundingClientRect().width;
     const newZoom = selectionValues / clientWidth;
 
+    chartManager.calcPartValuesCount(newZoom);
+    // set partValuesStart
+    if (chartManager.partValuesCount == chartManager.json.data.length) {
+        // Alle Daten werden angezeigt -> von Anfang an anzeigen
+        chartManager.partValuesStart = 0;
+    }
+    else {
+        // Nur ein Teil wird angezeigt -> Anfang ermitteln
+        chartManager.partValuesStart += chartManager.clickStatus.left * zoomXValuesFor1Pixel;
+
+    }
 
     chartManager.zoomFreq = newZoom;
     // Calculate new Position (scroll)
-    const newPos = chartManager.clickStatus.left * zoomXValuesFor1Pixel / chartManager.zoomFreq;
+    const newPos = ((chartManager.clickStatus.left * zoomXValuesFor1Pixel) - chartManager.partValuesStart) / chartManager.zoomFreq;
     chartManager.div.scroll(newPos, 0);
     OUT(chartManager.zoomFreq);
 }
@@ -730,6 +759,10 @@ function createButton() {
     return document.createElement('button');
 }
 function secondFormat(seconds, format) {
+    if (seconds > 1000000) {
+        // Unix TimeStamp
+        return dateFormat(new Date(seconds * 1000), format);
+    }
     var sec = Math.floor(seconds);
     var ms = (seconds - sec) * 1000;
     var date = new Date(2020, 0, 1, 0, 0, sec, ms);
@@ -808,6 +841,8 @@ class Chart {
         cursorLine.setAttribute("fill", "#000000");
         this.svg.appendChild(cursorLine);
         this.cursorLine = cursorLine;
+        //var drawZeroLine = this.zeroLine;
+        var drawZeroLine = false;
 
         // xStep: Schrittweite für 1 Messwert. Ist der Zoom >= 1 (d.h. exakt 1 oder mehr Datenwerte liefern 1 Pixel im Diagramm)
         //        dann ist xStep immer 1 (X Werte = 1 Pixel).
@@ -824,59 +859,77 @@ class Chart {
             if (line.data.usePath) {
                 console.log('[INFO] Use Path');
 
-                this.chartLines.forEach(line => {
-                    var path = createPath();
-                    var x = 1;
-                    var pth = `M1,${DIAGRAM_HEIGHT}`;
-                    if (Array.isArray(line.data)) {
-                        line.data.forEach(y => { pth += `C${x++} ${y} ` })
-                    }
-                    else if (typeof line.data === 'string') {
-                        pth = line.data;
-                    }
-                    else {
-                        const arr = line.data.dataFunction(this.pickLineData(line.data), this.chartManager.zoomFreq, this.chartManager.maxFreq);
-                        // (e => Math.round(e * yRange + yOffset));
-                        for (var p of arr) {
-                            x += xStep;
-                            if (p != undefined && p != NaN) {
-                                pth += `L${x},${(DIAGRAM_HEIGHT - (p * yRange + yOffset))}`;
-                            }
+                // DOPPELT ?!?!    this.chartLines.forEach(line => {
+                var path = createPath();
+                var x = 1;
+                var pth = `M1,${DIAGRAM_HEIGHT}`;
+                if (Array.isArray(line.data)) {
+                    line.data.forEach(y => { pth += `C${x++} ${y} ` })
+                }
+                else if (typeof line.data === 'string') {
+                    pth = line.data;
+                }
+                else {
+                    const arr = line.data.dataFunction(this.pickLineData(line.data), this.chartManager.zoomFreq, this.chartManager.maxFreq);
+                    // (e => Math.round(e * yRange + yOffset));
+                    for (var p of arr) {
+                        x += xStep;
+                        if (p != undefined && p != NaN) {
+                            pth += `L${x},${(DIAGRAM_HEIGHT - (p * yRange + yOffset))}`;
                         }
                     }
-                    path.setAttribute('d', pth.trim());
-                    path.setAttribute('stroke', `#${line.color}`);
-                    path.setAttribute('stroke-width', 0.5);
-                    path.setAttribute('fill', 'none');
+                    this.svg.setAttribute("width", x);
+                }
+                path.setAttribute('d', pth.trim());
+                path.setAttribute('stroke', `#${line.color}`);
+                path.setAttribute('stroke-width', 0.5);
+                path.setAttribute('fill', 'none');
 
-                    if (x > maxWidth) { maxWidth = x; }
-                    this.svg.appendChild(path);
-                })
+                if (x > maxWidth) { maxWidth = x; }
+                this.svg.appendChild(path);
+                // DOPPELT ?!?    })
             }
             else {
                 console.log('[INFO] Use Polyline');
-                this.chartLines.forEach(line => {
-                    var polyLine = createPolyline();
-                    var x = 0;
-                    var pts = "";
-                    if (Array.isArray(line.data)) {
-                        line.data.forEach(y => { pts += `${x++},${y} ` })
-                    }
-                    else if (typeof line.data === 'string') {
-                        pts = line.data;
-                    }
-                    else {
-                        var arr = line.data.dataFunction(this.pickLineData(line.data), this.chartManager.zoomFreq, this.chartManager.maxFreq);
-                        arr.forEach(y => { pts += `${x += xStep},${DIAGRAM_HEIGHT - (y * yRange + yOffset)} ` })
-                    }
-                    polyLine.setAttribute('points', pts.trim());
-                    polyLine.setAttribute('stroke', `#${line.color}`);
-                    polyLine.setAttribute('stroke-width', 0.5);
-                    polyLine.setAttribute('fill', 'none');
+                // DOPPELT ?!?    this.chartLines.forEach(line => {
+                var polyLine = createPolyline();
+                var x = 0;
+                var pts = "";
+                if (Array.isArray(line.data)) {
+                    line.data.forEach(y => { pts += `${x++},${y} ` })
+                }
+                else if (typeof line.data === 'string') {
+                    pts = line.data;
+                }
+                else {
+                    var arr = line.data.dataFunction(this.pickLineData(line.data), this.chartManager.zoomFreq, this.chartManager.maxFreq);
+                    arr.forEach(y => { pts += `${x += xStep},${DIAGRAM_HEIGHT - (y * yRange + yOffset)} ` })
+                    this.svg.setAttribute("width", x);
+                }
+                polyLine.setAttribute('points', pts.trim());
+                polyLine.setAttribute('stroke', `#${line.color}`);
+                polyLine.setAttribute('stroke-width', 0.5);
+                polyLine.setAttribute('fill', 'none');
 
-                    if (polyLine.points.length > maxWidth) { maxWidth = polyLine.points.length; }
-                    this.svg.appendChild(polyLine);
-                })
+                if (polyLine.points.length > maxWidth) { maxWidth = polyLine.points.length; }
+                this.svg.appendChild(polyLine);
+                // DOPPELT ?!?    })
+            }
+
+            if (drawZeroLine) {
+                var zeroLineWidth = this.svg.getAttribute("width");
+                const zeroLineTotalPoints = line.data.valueMax - line.data.valueMin; // alle -> 100%
+                const zeroLineYPercent = 1 / zeroLineTotalPoints * this.data.valueMax; // Max-Wert in x%
+                const zeroLineY = DIAGRAM_HEIGHT * zeroLineYPercent;  // Diagrammhöhe x% = Y Position der Null-Linie
+
+                var zeroLine = createRect();
+                zeroLine.setAttribute('x', 0);
+                zeroLine.setAttribute('y', zeroLineY);
+                zeroLine.setAttribute('width', zeroLineWidth);
+                zeroLine.setAttribute('height', 1);
+                zeroLine.setAttribute("fill", "#000000");
+                zeroLine.setAttribute("opacity", 0.5);
+                this.svg.appendChild(zeroLine);
             }
 
             this.svg.setAttribute('width', maxWidth.toString());
@@ -949,7 +1002,7 @@ const dataManager =
             },
             "valueMin": -3000,
             "valueMax": 32767,
-            "usePath": false,
+            "usePath": true,
             "zeroLine": true
         }],
         ["Thorax", { // "b"
@@ -1028,7 +1081,7 @@ const dataManager =
             },
             "valueMin": -1700,
             "valueMax": 12000,
-            "usePath": false,
+            "usePath": true,
             "zeroLine": false
         }],
         ["Plethysmogramm", { // "g"
@@ -1171,7 +1224,7 @@ class SelectionDialog {
         var time2 = dateFormat(chartManager.Time(this.selectionEnd), "HH:MM:SS");
         var timeRange = `${time1} - ${time2}`; // TODO i18n
 
-        var sec = chartManager.Seconds(this.selectionEnd - this.selectionStart);
+        var sec = chartManager.Seconds(this.selectionEnd - this.selectionStart) - (chartManager.partValuesStart / chartManager.maxFreq);
         var secDate = new Date(2022, 1, 1, 0, 0, sec);
 
 
@@ -1301,7 +1354,7 @@ class SelectionDialog {
         var time2 = dateFormat(chartManager.Time(this.selectionEnd), "HH:MM:SS");
         var timeRange = `${time1} - ${time2}`; // TODO i18n
 
-        var sec = chartManager.Seconds(this.selectionEnd - this.selectionStart);
+        var sec = chartManager.Seconds(this.selectionEnd - this.selectionStart) - (chartManager.partValuesStart / chartManager.maxFreq);
         var secDate = new Date(2022, 1, 1, 0, 0, sec);
 
 
@@ -1476,69 +1529,71 @@ class Mark {
 
     create() {
         if (this.visible) {
-            var rect = this._rect;
-            if (!rect) {
-                rect = createRect();
-                this._rect = rect;
+            var x = chartManager.calcPixelFromRowNumber(this.rowStart - chartManager.partValuesStart);
+            if (x >= 0) {
+                var rect = this._rect;
+                if (!rect) {
+                    rect = createRect();
+                    this._rect = rect;
+                }
+                rect.setAttribute('x', x);
+                rect.setAttribute('y', 0);
+                var width = this.rowEnd - this.rowStart;
+                rect.setAttribute('width', chartManager.calcPixelFromRowNumber(width));
+                rect.setAttribute('height', DIAGRAM_HEIGHT);
+                rect.setAttribute("fill", this.color);
+                rect.setAttribute("fill-opacity", MARK_OPACITY);
+                rect.setAttribute("dest", "mark");
+                rect.setAttribute("nr", this.nr);
+                rect.setAttribute("uuid", this.uuid);
+                this.svg.appendChild(rect);
+
+                var time1 = dateFormat(chartManager.TimeFromRow(this.rowStart), "HH:MM:SS");
+                var time2 = dateFormat(chartManager.TimeFromRow(this.rowEnd), "HH:MM:SS");
+                var timeRange = `${time1} - ${time2}`; // TODO i18n
+
+                var sec = chartManager.SecondsFromRow(this.rowEnd - this.rowStart);
+                var secDate = new Date(2022, 1, 1, 0, 0, sec);
+                var timeDiff = dateFormat(secDate, "HH:MM:SS");             // TODO i18n
+
+                if (!this.text1) {
+                    this.text1 = createText();
+                }
+                this.text1.setAttribute('x', x + 20);
+                this.text1.setAttribute('y', 25);
+                this.text1.innerHTML = timeRange; // TODO i18n Zeitformat!
+                this.text1.setAttribute('fill', 'black');
+                this.text1.setAttribute("dest", "mark");
+                this.text1.setAttribute("nr", this.nr);
+                this.text1.setAttribute("uuid", this.uuid);
+                this.svg.appendChild(this.text1);
+
+                if (!this.text2) {
+                    this.text2 = createText();
+                }
+                this.text2.setAttribute('x', x + 20);
+                this.text2.setAttribute('y', 45);
+                this.text2.innerHTML = "Dauer: " + timeDiff + ")"; // TODO i18n Zeitformat!
+                this.text2.setAttribute('fill', 'black');
+                this.text2.setAttribute("dest", "mark");
+                this.text2.setAttribute("nr", this.nr);
+                this.text2.setAttribute("uuid", this.uuid);
+                this.svg.appendChild(this.text2);
+
+                if (!this.text3) {
+                    this.text3 = createText();
+                }
+                this.text3.setAttribute('x', x + 20);
+                this.text3.setAttribute('y', 65);
+                this.text3.innerHTML = this.type; // TODO i18n Zeitformat!
+                this.text3.setAttribute('fill', 'black');
+                this.text3.setAttribute("dest", "mark");
+                this.text3.setAttribute("nr", this.nr);
+                this.text3.setAttribute("uuid", this.uuid);
+                this.svg.appendChild(this.text3);
+
+                chartManager.clickStatus.removeSelectionRect();
             }
-            var x = chartManager.calcPixelFromRowNumber(this.rowStart)
-            rect.setAttribute('x', x);
-            rect.setAttribute('y', 0);
-            var width = this.rowEnd - this.rowStart;
-            rect.setAttribute('width', chartManager.calcPixelFromRowNumber(width));
-            rect.setAttribute('height', DIAGRAM_HEIGHT);
-            rect.setAttribute("fill", this.color);
-            rect.setAttribute("fill-opacity", MARK_OPACITY);
-            rect.setAttribute("dest", "mark");
-            rect.setAttribute("nr", this.nr);
-            rect.setAttribute("uuid", this.uuid);
-            this.svg.appendChild(rect);
-
-            var time1 = dateFormat(chartManager.TimeFromRow(this.rowStart), "HH:MM:SS");
-            var time2 = dateFormat(chartManager.TimeFromRow(this.rowEnd), "HH:MM:SS");
-            var timeRange = `${time1} - ${time2}`; // TODO i18n
-
-            var sec = chartManager.SecondsFromRow(this.rowEnd - this.rowStart);
-            var secDate = new Date(2022, 1, 1, 0, 0, sec);
-            var timeDiff = dateFormat(secDate, "HH:MM:SS");             // TODO i18n
-
-            if (!this.text1) {
-                this.text1 = createText();
-            }
-            this.text1.setAttribute('x', x + 20);
-            this.text1.setAttribute('y', 25);
-            this.text1.innerHTML = timeRange; // TODO i18n Zeitformat!
-            this.text1.setAttribute('fill', 'black');
-            this.text1.setAttribute("dest", "mark");
-            this.text1.setAttribute("nr", this.nr);
-            this.text1.setAttribute("uuid", this.uuid);
-            this.svg.appendChild(this.text1);
-
-            if (!this.text2) {
-                this.text2 = createText();
-            }
-            this.text2.setAttribute('x', x + 20);
-            this.text2.setAttribute('y', 45);
-            this.text2.innerHTML = "Dauer: " + timeDiff + ")"; // TODO i18n Zeitformat!
-            this.text2.setAttribute('fill', 'black');
-            this.text2.setAttribute("dest", "mark");
-            this.text2.setAttribute("nr", this.nr);
-            this.text2.setAttribute("uuid", this.uuid);
-            this.svg.appendChild(this.text2);
-
-            if (!this.text3) {
-                this.text3 = createText();
-            }
-            this.text3.setAttribute('x', x + 20);
-            this.text3.setAttribute('y', 65);
-            this.text3.innerHTML = this.type; // TODO i18n Zeitformat!
-            this.text3.setAttribute('fill', 'black');
-            this.text3.setAttribute("dest", "mark");
-            this.text3.setAttribute("nr", this.nr);
-            this.text3.setAttribute("uuid", this.uuid);
-            this.svg.appendChild(this.text3);
-
-            chartManager.clickStatus.removeSelectionRect();
         }
     }
 }
@@ -1552,7 +1607,7 @@ function createMark(nr) {
     const dialog = chartManager.dialogFromNr(nr);
     const svg = dialog.svg;
     const uuid = ""; // Für Implementierung als Component (wenn Datenbankzugriff besteht und Markierungen geladen werden)
-    const mark = new Mark(uuid, nr, dialog.note, dialog.color, dialog.type, true, svg, MARK_SOURCE_DOC, dialog.rowStart, dialog.rowEnd);
+    const mark = new Mark(uuid, nr, dialog.note, dialog.color, dialog.type, true, svg, MARK_SOURCE_DOC, dialog.rowStart + chartManager.partValuesStart, dialog.rowEnd + chartManager.partValuesStart);
 
     chartManager._marks.push(mark);
     chartManager.div.removeChild(dialog.div);
@@ -1569,8 +1624,12 @@ function changeMark(nr) {
     mark.type = dialog.type;
     mark._rect.setAttribute("fill", dialog.color);
 
-    dialog.svg.removeChild(dialog.rectLeft);
-    dialog.svg.removeChild(dialog.rectRight);
+    try {
+        dialog.svg.removeChild(dialog.rectLeft);
+        dialog.svg.removeChild(dialog.rectRight);
+    }
+    catch (e) { }
+
     dialog.mark.needUpdate = true;
     dialog.mark.create();
     chartManager.div.removeChild(dialog.div);
@@ -1812,6 +1871,7 @@ class HorizontalScale {
     }
     draw() {
         const svg = this.svg;
+        const startTimeSeconds = chartManager.horizontalScaleShowsTime ? chartManager.json.header.TimeStampStart / 1000000 : 0;
         // Alle vorhandenen Elemente aus der Skala (SVG) löschen
         while (svg.childNodes.length > 0) svg.removeChild(svg.firstChild);
 
@@ -1840,7 +1900,7 @@ class HorizontalScale {
 
         // Startwerte initialisieren
         var posX = pixelStep;
-        var actualSecond = stepRange.seconds;
+        var actualSecond = stepRange.seconds + (chartManager.partValuesStart / chartManager.maxFreq);
 
         while (posX < svgWidth) {
             var roundedSeconds = Math.round(actualSecond);
@@ -1856,7 +1916,7 @@ class HorizontalScale {
                 const lineWidth = range.width;
                 if (range.drawText) {
                     // falls vorher ermittelt wurde, das diese Range genug Abstand (X-Pixel) hat, dann auch eine Beschriftung hinzufügen
-                    const text = secondFormat(actualSecond, "HH:MM:SS");
+                    const text = secondFormat(actualSecond + startTimeSeconds, "HH:MM:SS");
                     this.line(posX, lineHeight, text, color, lineWidth);
                 }
                 else {
