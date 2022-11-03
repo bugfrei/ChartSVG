@@ -917,6 +917,9 @@ class Chart {
 
             if (drawZeroLine) {
                 const { color, opacity, height, style } = drawZeroLine;
+                if (style == undefined) {
+                    style = "";
+                }
                 var zeroLineWidth = this.svg.getAttribute("width");
                 const zeroLineTotalPoints = line.data.valueMax - line.data.valueMin; // alle -> 100%
                 const zeroLineYPercent = 1 / zeroLineTotalPoints * line.data.valueMax; // Max-Wert in x%
@@ -929,7 +932,7 @@ class Chart {
                 zeroLine.setAttribute("y1", zeroLineY);
                 zeroLine.setAttribute("x2", zeroLineWidth);
                 zeroLine.setAttribute("y2", zeroLineY);
-                zeroLine.setAttribute("style", `stroke:${color}; stroke-width:${height}; opacity:${opacity};${style}`);
+                zeroLine.setAttribute("style", `stroke:${color}; stroke-width:${height}; opacity:${opacity}; ${style}`);
 
                 this.svg.appendChild(zeroLine);
             }
@@ -1005,6 +1008,14 @@ const dataManager =
             "valueMin": -3000,
             "valueMax": 32767,
             "usePath": true,
+            /*
+            zeroLine: Objekt mit mindestens 3 Angaben:
+                color: string, Farbcode (#rrggbb) oder Farbname (red)
+                opacity: number, Transparenzwert (0.3)
+                height: number, Höhe (Dicke) der Linie in Pixel (1)
+                Optional ist:
+                style: string, zusätzliche Style-Angaben (CSS)
+            */
             "zeroLine": { color: "#FF0000", opacity: 0.3, height: 1, style: '' }
         }],
         ["Thorax", { // "b"
@@ -1687,7 +1698,6 @@ function deleteMark(nr) {
 
 
     }
-
 }
 function resizeMark(nr) {
     const dialog = chartManager.dialogFromNr(nr);
