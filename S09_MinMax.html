@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MinMax Tests</title>
+</head>
+
+<body>
+    <div>
+        <svg width="600">
+            <!-- Vertikale Linien 2 Farbig -->
+            <path d="M0,0 V50
+            M1,10 V35
+            M3,5 V33
+            M4,12 V48
+            M6,3 V33
+            M7,23 V39
+            " style="stroke: black; fill:none;" />
+            <path d="M2,0 V50
+            M5,10 V35
+            M8,5 V33
+            " style="stroke: green; fill:none;" />
+            <!-- Verbundene Linien 2 Farbig -->
+            <path d="
+            M100,0 L101,50
+            L102,10 L103,35
+            M105,50 L106,12
+            L107,48
+            M109,35 L110,3
+            L111,33
+            L112,23 L113,39
+            " style="stroke: black; fill:none;" />
+            <path d="
+            M103,35 L104,0
+            L105,50
+            M107,48 L108,10
+            L109,35
+            M113,39 L114,5
+            L115,33
+            " style="stroke: green; fill:none;" />
+
+            <!-- Verbundene Linien 2 Farbig 2 Pixel Abstand -->
+            <path d="
+            M200,0 L202,50
+            L204,10 L206,35
+            M210,50 L212,12
+            L214,48
+            M218,35 L220,3
+            L222,33
+            L224,23 L226,39
+            " style="stroke: black; fill:none;" />
+            <path d="
+            M206,35 L208,0
+            L210,50
+            M214,48 216,10
+            L218,35
+            M226,39 L228,5
+            L230,33
+            " style="stroke: green; fill:none;" />
+            <!-- Verbundene Linien 2 Farbig 4 Pixel Abstand -->
+            <path d="
+            M300,0 L304,50
+            L308,10 L312,35 
+            M320,50 L324,12
+            L328,48 
+            M336,35 L340,3
+            L344,33 
+            L348,23 L352,39 
+            " style="stroke: black; fill:none;" />
+            <path d="
+            M312,35 L316,0
+            L320,50 
+            M328,48 332,10
+            L336,35 
+            M352,39 L356,5
+            L360,33 
+            " style="stroke: green; fill:none;" />
+        </svg>
+        <hr />
+        <svg width="1000" height="150" ID="DEST">
+
+        </svg>
+        <hr />
+        <svg width="1000" height="150" ID="DEST2">
+
+        </svg>
+    </div>
+</body>
+
+</html>
+<script src="S09_MinMax.js" defer> </script>
