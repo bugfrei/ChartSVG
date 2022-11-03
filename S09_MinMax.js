@@ -51,6 +51,47 @@ class PathGenerator {
         this.points.push({ y: this.height - y, color: col });
         this.needcalc = true;
     }
+    // Fügt mehrere einzellne Y-Werte hinzu, 0 = unten
+    addYValues(values) {
+        values.forEach(v => {
+            this.addYValue(v.y, v.color);
+        });
+    }
+    addYValuesFromArray(array, color) {
+        array.forEach(v => {
+            if (v.min && v.max) {
+                // Array mit min/max Werten
+                if (v.color) {
+                    // und mit Farbangaben
+                    this.addYValue(v.min, v.color);
+                    this.addYValue(v.max, v.color);
+                }
+                else {
+                    // aber ohne Farbangaben (Parameter nutzen)
+                    this.addYValue(v.min, color);
+                    this.addYValue(v.max, color);
+                }
+            }
+            else {
+                if (v.min) {
+                    // Nur Min-Wert
+                    // Mit Farbangaben bzw. Parameter nutzen
+                    this.addYValue(v.min, v.color ? v.color : color);
+                }
+                if (v.max) {
+                    // Nur Max-Wert
+                    // Mit Farbangaben bzw. Parameter nutzen
+                    this.addYValue(v.max, v.color ? v.color : color);
+                }
+                if (!v.min && !v.min) {
+                    // Weder Min, noch Max-Wert, d.h. ein Array aus Zahlen
+                    this.addYValue(v, color);
+                }
+            }
+        });
+    }
+
+
     // Fügt eine einzellne Y-Pos hinzu, 0 = oben
     addYPos(y, color) {
         var col = this.colors.find(c => c.color == color);
@@ -204,3 +245,20 @@ pg2.addYValue(99, "#0000FF");
 pg2.addYValue(117, "#FF0000");
 // pg.makePath(4);
 pg2.drawPath({ gapPixel: width / 2 });
+
+
+// addYValuesFromArray
+// Mit PATH ############################################ aus Array
+const svg3 = document.getElementById("DEST3");
+const pg3 = new PathGenerator({ startPointX: 0, SVG: svg3 });
+// Mittels Arrays
+pg3.addYValuesFromArray([30, 150, 80, 145, 105, 108, 99, 117], "#000000");
+
+pg3.addYValuesFromArray([
+    { min: 30, max: 150, color: "#FF0000" },
+    { min: 80, max: 145, color: "#00FF00" },
+    { min: 105, max: 108, color: "#00FF00" },
+    { min: 99, max: 117, color: "#000000" }
+], "#000000");
+// pg.makePath(4);
+pg3.drawPath({ gapPixel: width / 2 });

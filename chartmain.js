@@ -883,7 +883,7 @@ class Chart {
                             pth += `L${x},${(DIAGRAM_HEIGHT - (p * yRange + yOffset))}`;
                         }
                     }
-                    this.svg.setAttribute("width", x);
+                    this.svg.setAttribute("width", arr.length);
                 }
                 path.setAttribute('d', pth.trim());
                 path.setAttribute('stroke', `#${line.color}`);
@@ -1660,6 +1660,47 @@ class PathGenerator {
         this.points.push({ y: this.height - y, color: col });
         this.needcalc = true;
     }
+    // Fügt mehrere einzellne Y-Werte hinzu, 0 = unten
+    addYValues(values) {
+        values.forEach(v => {
+            this.addYValue(v.y, v.color);
+        });
+    }
+    addYValuesFromArray(array, color) {
+        array.forEach(v => {
+            if (v.min && v.max) {
+                // Array mit min/max Werten
+                if (v.color) {
+                    // und mit Farbangaben
+                    this.addYValue(v.min, v.color);
+                    this.addYValue(v.max, v.color);
+                }
+                else {
+                    // aber ohne Farbangaben (Parameter nutzen)
+                    this.addYValue(v.min, color);
+                    this.addYValue(v.max, color);
+                }
+            }
+            else {
+                if (v.min) {
+                    // Nur Min-Wert
+                    // Mit Farbangaben bzw. Parameter nutzen
+                    this.addYValue(v.min, v.color ? v.color : color);
+                }
+                if (v.max) {
+                    // Nur Max-Wert
+                    // Mit Farbangaben bzw. Parameter nutzen
+                    this.addYValue(v.max, v.color ? v.color : color);
+                }
+                if (!v.min && !v.min) {
+                    // Weder Min, noch Max-Wert, d.h. ein Array aus Zahlen
+                    this.addYValue(v, color);
+                }
+            }
+        });
+    }
+
+
     // Fügt eine einzellne Y-Pos hinzu, 0 = oben
     addYPos(y, color) {
         var col = this.colors.find(c => c.color == color);
