@@ -55,8 +55,11 @@ class ChartManager {
         else {
             const valueCount = this.json.data.length;
             const width = window.innerWidth - 30;
-            this._zoom_freq = valueCount / width;
+            this._zoom_freq = (valueCount / width) * 2; // * 2 notwendig, da Standardansicht IMMER Min/Max verwendet und damit 2 Datenpunkte pro Value anstehen
+            // Damit diese Platz haben muss der Zoom halb zu groß sein
         }
+        this.xGap = 1;
+        this.maximumXStepDivider = 1;
         this.charts = [];
         this._maxFreq = 0;
         this._dialogNr = 0;         // Fortlaufende Nummer zur identifikation neuer Dialoge
@@ -231,7 +234,7 @@ class ChartManager {
                     text.setAttribute('font-size', elementHeight);
                     this.clickChart.svg.appendChild(anchor);
                     const time = dateFormat(chartManager.Time(x1), "HH:MM:SS");
-                    const seconds = chartManager.Seconds(x2 - x1) - (chartManager.partValuesStart / chartManager.maxFreq);
+                    const seconds = (chartManager.Seconds(x2 - x1)) - (chartManager.partValuesStart / chartManager.maxFreq);
                     const secondsStr = secondFormat(seconds, "HH:MM:SS");
 
                     text.innerHTML = time + ` (${secondsStr})`; // TODO i18n Zeitformat!
@@ -503,7 +506,7 @@ class ChartManager {
     }
 
     Seconds(offsetX) {
-        return ((offsetX * this.zoomFreq) + chartManager.partValuesStart) / this.maxFreq;
+        return ((offsetX * this.zoomFreq / this.maximumXStepDivider) + chartManager.partValuesStart) / this.maxFreq;
     }
     Time(offsetX) {
         // TimeStampStart ist kein Unix Timestamp sondern das 1000 fache (also nanosekunden seit...) Daher / 1000
@@ -514,7 +517,7 @@ class ChartManager {
         return new Date(ts + ms);
     }
     SecondsFromRow(row) {
-        return row / this.maxFreq;
+        return row / this.maxFreq / chartManager.maximumXStepDivider;
     }
     TimeFromRow(row) {
         // TimeStampStart ist kein Unix Timestamp sondern das 1000 fache (also nanosekunden seit...) Daher / 1000
@@ -605,6 +608,7 @@ class ChartManager {
 
 
     createAll() {
+        chartManager.maximumXStepDivider = null;
         this.charts.forEach(c => c.drawLines());
         this._marks.forEach(m => { m.needUpdate = true; m.create(); })
         this.createHorizontalScales();
@@ -628,13 +632,12 @@ function doZoom() {
     }
     else {
         // Nur ein Teil wird angezeigt -> Anfang ermitteln
-        chartManager.partValuesStart += chartManager.clickStatus.left * zoomXValuesFor1Pixel;
-
+        chartManager.partValuesStart += chartManager.clickStatus.left * zoomXValuesFor1Pixel / chartManager.maximumXStepDivider;
     }
 
     chartManager.zoomFreq = newZoom;
     // Calculate new Position (scroll)
-    const newPos = ((chartManager.clickStatus.left * zoomXValuesFor1Pixel) - chartManager.partValuesStart) / chartManager.zoomFreq;
+    const newPos = ((chartManager.clickStatus.left * zoomXValuesFor1Pixel) - (chartManager.partValuesStart * chartManager.maximumXStepDivider)) / chartManager.zoomFreq;
     chartManager.div.scroll(newPos, 0);
     OUT(chartManager.zoomFreq);
 }
@@ -651,8 +654,11 @@ function mouseMove(e) {
     chartManager.mouseMove(e);
 }
 function keyDown(obj, e) {
-    chartManager.clickStatus.removeSelectionRect();
-    chartManager.clickStatus.clickNumber = 0;
+    if (obj.keyCode == 27) // Esc
+    {
+        chartManager.clickStatus.removeSelectionRect();
+        chartManager.clickStatus.clickNumber = 0;
+    }
 }
 function mouseUp(e) {
     if (chartManager._resizeData.state == 1) {
@@ -853,7 +859,10 @@ class Chart {
         //        dann ist xStep immer 1 (X Werte = 1 Pixel).
         //        Ist der Zoom < 1, dann entspricht immer 1 Wert mehr als 1 Pixel.
         //        Bei z.B. Zoom = 0.5, sind 0.5 Datenpunkte = 1 Pixel, 1 Datenpunkt = 2 Pixel (1 / 0.5 = 2)
-        const xStep = chartManager.zoomFreq >= 1 ? 1 : 1 / chartManager.zoomFreq;
+
+        // Bei xGap (Konfigurierten X Abstand der Linien) von 1 wird 1+1=2 verwendet.
+        // Die 2 sind notwendig, damit beim Min/Max Wertepaaren ein Gap von 1 (/2) verwendet werden kann. Bei AVG bleibt es bei 2
+        const xStepOrig = (chartManager.zoomFreq >= 1 ? 1 : 1 / chartManager.zoomFreq) + chartManager.xGap;
 
         var maxWidth = 0;
         // Dann neu zeichnen
@@ -861,6 +870,7 @@ class Chart {
             const range = line.data.valueMax - line.data.valueMin;   // 65535
             const yRange = DIAGRAM_HEIGHT / range;         // 1 Messwert = yRange Pixel
             const yOffset = line.data.valueMin * yRange * -1;   // Addierung damit min. Value = 0 ist und nicht -75
+            var xStep = xStepOrig
             if (line.data.usePath) {
                 console.log('[INFO] Use Path');
 
@@ -869,26 +879,39 @@ class Chart {
                 var x = 1;
                 var pth = `M1,${DIAGRAM_HEIGHT}`;
                 if (Array.isArray(line.data)) {
-                    line.data.forEach(y => { pth += `C${x++} ${y} ` })
+                    const pg = new PathGenerator({ SVG: this.svg });
+                    pg.addYValuesFromArray(line.data, "#000000");
+                    pg.drawPath({ gapPixel: xStep });
+                    this.svg.setAttribute("width", pg.maxX);
+                    x = pg.maxX;
                 }
                 else if (typeof line.data === 'string') {
                     pth = line.data;
+                    path.setAttribute('d', pth.trim());
+                    path.setAttribute('stroke', `#${line.color}`);
+                    path.setAttribute('stroke-width', 0.5);
+                    path.setAttribute('fill', 'none');
                 }
                 else {
-                    const arr = line.data.dataFunction(this.pickLineData(line.data), this.chartManager.zoomFreq, this.chartManager.maxFreq);
-                    // (e => Math.round(e * yRange + yOffset));
-                    for (var p of arr) {
-                        x += xStep;
-                        if (p != undefined && p != NaN) {
-                            pth += `L${x},${(DIAGRAM_HEIGHT - (p * yRange + yOffset))}`;
-                        }
+                    var arr = line.data.dataFunction(this.pickLineData(line.data), this.chartManager.zoomFreq, this.chartManager.maxFreq);
+
+                    const pg = new PathGenerator({ SVG: this.svg, min: line.data.valueMin, max: line.data.valueMax });
+                    pg.addYValuesFromArray(arr, line.color);
+                    // xGap einfliesen lassen (konfigurierter X-Abstand) unter berücksichtigung von Datenmenge (AVG=/2, Min/Max=*1)
+                    // Für Ausgleich das es bei Min/Max 2 Werte gibt wird bei AVG der XAbstand verdoppelt
+                    const arrCount = arr.length;
+                    const valuesCount = pg.points.length;
+                    const xStepDivider = valuesCount / arrCount;
+                    if (chartManager.maximumXStepDivider == null || xStepDivider > chartManager.maximumXStepDivider) {
+                        chartManager.maximumXStepDivider = xStepDivider;
                     }
-                    this.svg.setAttribute("width", arr.length);
+                    xStep /= xStepDivider; // bei AVG sind beide Werte gleich -> /1, bei Min/Max ist valuesCount doppelt so hoch -> /2
+
+                    pg.drawPath({ gapPixel: xStep });
+                    // (e => Math.round(e * yRange + yOffset));
+                    this.svg.setAttribute("width", pg.maxX);
+                    x = pg.maxX;
                 }
-                path.setAttribute('d', pth.trim());
-                path.setAttribute('stroke', `#${line.color}`);
-                path.setAttribute('stroke-width', 0.5);
-                path.setAttribute('fill', 'none');
 
                 if (x > maxWidth) { maxWidth = x; }
                 this.svg.appendChild(path);
@@ -1007,8 +1030,12 @@ const dataManager =
                     // Alles übergeben wenn kein Faktor oder Frequenz vorhanden
                     return dataInformation.data;
                 }
+                if (factor <= 1) {
+                    // Exakt 1 zu 1 Faktor (oder kleiner 1) - Alles im original übergeben, kein AVG oder Min/Max Ermittlung nötig
+                    return dataInformation.data;
+                }
                 // Interpolierung zur y-Größe der Diagramme erfolgt beim zeichnen
-                var newData = dataManager.simpleAvg(dataInformation.data, factor, maxFreq);
+                var newData = dataManager.simpleMinMax(dataInformation.data, factor, maxFreq);
                 return newData;
             },
             "valueMin": -3000,
@@ -1030,8 +1057,12 @@ const dataManager =
                     // Alles übergeben wenn kein Faktor oder Frequenz vorhanden
                     return dataInformation.data;
                 }
+                if (factor <= 1) {
+                    // Exakt 1 zu 1 Faktor (oder kleiner 1) - Alles im original übergeben, kein AVG oder Min/Max Ermittlung nötig
+                    return dataInformation.data;
+                }
                 // Interpolierung zur y-Größe der Diagramme erfolgt beim zeichnen
-                var newData = dataManager.simpleAvg(dataInformation.data, factor, maxFreq);
+                var newData = dataManager.simpleMinMax(dataInformation.data, factor, maxFreq);
                 return newData;
             },
             "valueMin": -2200,
@@ -1046,8 +1077,12 @@ const dataManager =
                     // Alles übergeben wenn kein Faktor oder Frequenz vorhanden
                     return dataInformation.data;
                 }
+                if (factor <= 1) {
+                    // Exakt 1 zu 1 Faktor (oder kleiner 1) - Alles im original übergeben, kein AVG oder Min/Max Ermittlung nötig
+                    return dataInformation.data;
+                }
                 // Interpolierung zur y-Größe der Diagramme erfolgt beim zeichnen
-                var newData = dataManager.simpleAvg(dataInformation.data, factor, maxFreq);
+                var newData = dataManager.simpleMinMax(dataInformation.data, factor, maxFreq);
                 return newData;
             },
             "valueMin": -1400,
@@ -1062,8 +1097,12 @@ const dataManager =
                     // Alles übergeben wenn kein Faktor oder Frequenz vorhanden
                     return dataInformation.data;
                 }
+                if (factor <= 1) {
+                    // Exakt 1 zu 1 Faktor (oder kleiner 1) - Alles im original übergeben, kein AVG oder Min/Max Ermittlung nötig
+                    return dataInformation.data;
+                }
                 // Interpolierung zur y-Größe der Diagramme erfolgt beim zeichnen
-                var newData = dataManager.simpleAvg(dataInformation.data, factor, maxFreq);
+                var newData = dataManager.simpleMinMax(dataInformation.data, factor, maxFreq);
                 return newData;
             },
             "valueMin": -1200,
@@ -1078,8 +1117,12 @@ const dataManager =
                     // Alles übergeben wenn kein Faktor oder Frequenz vorhanden
                     return dataInformation.data;
                 }
+                if (factor <= 1) {
+                    // Exakt 1 zu 1 Faktor (oder kleiner 1) - Alles im original übergeben, kein AVG oder Min/Max Ermittlung nötig
+                    return dataInformation.data;
+                }
                 // Interpolierung zur y-Größe der Diagramme erfolgt beim zeichnen
-                var newData = dataManager.simpleAvg(dataInformation.data, factor, maxFreq);
+                var newData = dataManager.simpleMinMax(dataInformation.data, factor, maxFreq);
                 return newData;
             },
             "valueMin": -1700,
@@ -1094,8 +1137,12 @@ const dataManager =
                     // Alles übergeben wenn kein Faktor oder Frequenz vorhanden
                     return dataInformation.data;
                 }
+                if (factor <= 1) {
+                    // Exakt 1 zu 1 Faktor (oder kleiner 1) - Alles im original übergeben, kein AVG oder Min/Max Ermittlung nötig
+                    return dataInformation.data;
+                }
                 // Interpolierung zur y-Größe der Diagramme erfolgt beim zeichnen
-                var newData = dataManager.simpleAvg(dataInformation.data, factor, maxFreq);
+                var newData = dataManager.simpleMinMax(dataInformation.data, factor, maxFreq);
                 return newData;
             },
             "valueMin": -1700,
@@ -1110,13 +1157,17 @@ const dataManager =
                     // Alles übergeben wenn kein Faktor oder Frequenz vorhanden
                     return dataInformation.data;
                 }
+                if (factor <= 1) {
+                    // Exakt 1 zu 1 Faktor (oder kleiner 1) - Alles im original übergeben, kein AVG oder Min/Max Ermittlung nötig
+                    return dataInformation.data;
+                }
                 // Interpolierung zur y-Größe der Diagramme erfolgt beim zeichnen
-                var newData = dataManager.simpleAvg(dataInformation.data, factor, maxFreq);
+                var newData = dataManager.simpleMinMax(dataInformation.data, factor, maxFreq);
                 return newData;
             },
             "valueMin": -3400,
             "valueMax": 32767,
-            "usePath": false,
+            "usePath": true,
             "zeroLine": false
         }],
         ["Aktivitaet", { // "h"
@@ -1126,13 +1177,17 @@ const dataManager =
                     // Alles übergeben wenn kein Faktor oder Frequenz vorhanden
                     return dataInformation.data;
                 }
+                if (factor <= 1) {
+                    // Exakt 1 zu 1 Faktor (oder kleiner 1) - Alles im original übergeben, kein AVG oder Min/Max Ermittlung nötig
+                    return dataInformation.data;
+                }
                 // Interpolierung zur y-Größe der Diagramme erfolgt beim zeichnen
-                var newData = dataManager.simpleAvg(dataInformation.data, factor, maxFreq);
+                var newData = dataManager.simpleMinMax(dataInformation.data, factor, maxFreq);
                 return newData;
             },
             "valueMin": -1300,
             "valueMax": 24000,
-            "usePath": false,
+            "usePath": true,
             "zeroLine": false
         }]
     ],
@@ -1159,6 +1214,29 @@ const dataManager =
             }
         }
         console.log("[INFO] simpleAvg newData length: " + newData.length);
+        return newData;
+    },
+    simpleMinMax(data, factor, freq) {
+        var nr = 0;
+        var min = null;
+        var max = null;
+        const anz = factor;
+        var newData = [];
+        console.log("[INFO] simpleMinMax data length: " + data.length);
+        for (var d of data) {
+            nr++;
+            if (d != undefined) {
+                if (min == null || d < min) min = d;
+                if (max == null || d > max) max = d;
+            }
+            if (nr >= anz) {
+                nr = 0;
+                newData.push({ min: min, max: max }); // color: ... wenn klar ist, wie die grünen Linien erkannt werden
+                min = null;
+                max = null;
+            }
+        }
+        console.log("[INFO] simpleMinMax newData length: " + newData.length);
         return newData;
     },
     dataInformationFromSignalName(sigName) {
@@ -1618,9 +1696,12 @@ class Mark {
 }
 
 class PathGenerator {
-    constructor({ startPointX, startPointY, SVG }) {
+    constructor({ startPointX, startPointY, SVG, min, max }) {
         this.startPointX = 0;
         this.startPointY = 0;
+        this.min = min;
+        this.max = max;
+        this.range = max - min;
         this.height = 150;
         this.needcalc = true;
         if (startPointX) {
@@ -1636,6 +1717,11 @@ class PathGenerator {
         }
         this.colors = [];
         this.points = [];
+        this.maxX = 0;
+
+        // Für Umrechnung von Value zu Pixel (Y)
+        this.yFactor = this.range / this.height;
+        this.minDiff = this.min / this.yFactor;
     }
 
     // Fügt einen absoluten Punkt hinzu. 0,0 = links/oben
@@ -1652,6 +1738,7 @@ class PathGenerator {
     // Fügt einen einzellnen Y-Wert hinzu, 0 = unten
     addYValue(y, color) {
         var col = this.colors.find(c => c.color == color);
+        var y = (y / this.yFactor) - this.minDiff;
 
         if (!col) {
             col = { color: color, points: [], path: "" };
@@ -1668,33 +1755,38 @@ class PathGenerator {
     }
     addYValuesFromArray(array, color) {
         array.forEach(v => {
-            if (v.min && v.max) {
-                // Array mit min/max Werten
-                if (v.color) {
-                    // und mit Farbangaben
-                    this.addYValue(v.min, v.color);
-                    this.addYValue(v.max, v.color);
-                }
-                else {
-                    // aber ohne Farbangaben (Parameter nutzen)
-                    this.addYValue(v.min, color);
-                    this.addYValue(v.max, color);
-                }
+            if (v == undefined) {
+                // TODO Prüfen bei Zoom < 1 warum UNDEFINED vorkommen!!!!!
             }
             else {
-                if (v.min) {
-                    // Nur Min-Wert
-                    // Mit Farbangaben bzw. Parameter nutzen
-                    this.addYValue(v.min, v.color ? v.color : color);
+                if (!isNaN(v.min) && !isNaN(v.max)) {
+                    // Array mit min/max Werten
+                    if (v.color) {
+                        // und mit Farbangaben
+                        this.addYValue(v.min, v.color);
+                        this.addYValue(v.max, v.color);
+                    }
+                    else {
+                        // aber ohne Farbangaben (Parameter nutzen)
+                        this.addYValue(v.min, color);
+                        this.addYValue(v.max, color);
+                    }
                 }
-                if (v.max) {
-                    // Nur Max-Wert
-                    // Mit Farbangaben bzw. Parameter nutzen
-                    this.addYValue(v.max, v.color ? v.color : color);
-                }
-                if (!v.min && !v.min) {
-                    // Weder Min, noch Max-Wert, d.h. ein Array aus Zahlen
-                    this.addYValue(v, color);
+                else {
+                    if (!isNaN(v.min)) {
+                        // Nur Min-Wert
+                        // Mit Farbangaben bzw. Parameter nutzen
+                        this.addYValue(v.min, v.color ? v.color : color);
+                    }
+                    if (!isNaN(v.max)) {
+                        // Nur Max-Wert
+                        // Mit Farbangaben bzw. Parameter nutzen
+                        this.addYValue(v.max, v.color ? v.color : color);
+                    }
+                    if (isNaN(v.min) && isNaN(v.min)) {
+                        // Weder Min, noch Max-Wert, d.h. ein Array aus Zahlen
+                        this.addYValue(v, color);
+                    }
                 }
             }
         });
@@ -1727,6 +1819,7 @@ class PathGenerator {
             }
             y = p.y;
         });
+        this.maxX = x;
 
         this.colors.forEach(c => {
             var path = "";
@@ -1762,7 +1855,7 @@ class PathGenerator {
         this.colors.forEach(c => {
             path = createPath({
                 d: c.path,
-                style: `stroke:${c.color};fill:none;`
+                style: `stroke:${c.color};stroke-width:1;fill:none;`
             });
             svg.appendChild(path);
         })
@@ -1781,8 +1874,10 @@ class PathGenerator {
             }
             else {
                 this.points[i].color.points.push({ x1: this.points[i].x, y1: this.points[i].y, x2: this.points[i].x, y2: this.points[i + 1].y });
+                x = this.points[i + 1].x;
             }
         }
+        this.maxX = x;
 
         this.colors.forEach(c => {
             var path = "";
@@ -1976,26 +2071,26 @@ async function start() {
 
     // kurven.json
     chartManager.addHorizontalScale({ before: chart1, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Bottom });
-    chart1.addLine("000000", "Nasaler Druck");
+    chart1.addLine("#000000", "Nasaler Druck");
 
     var chart2 = chartManager.addChart();
-    chart2.addLine("000000", "Thorax");
+    chart2.addLine("#000000", "Thorax");
 
     var chart3 = chartManager.addChart();
-    chart3.addLine("000000", "PSchnarchen")
+    chart3.addLine("#000000", "PSchnarchen")
 
     var chart4 = chartManager.addChart();
-    chart4.addLine("FF0000", "SpO2");
-    chart4.addLine("00FF00", "SpO2 B-B");
+    chart4.addLine("#FF0000", "SpO2");
+    chart4.addLine("#00FF00", "SpO2 B-B");
 
     var chart5 = chartManager.addChart();
-    chart5.addLine("000000", "Pulsrate");
+    chart5.addLine("#000000", "Pulsrate");
 
     var chart6 = chartManager.addChart();
-    chart6.addLine("000000", "Plethysmogramm");
+    chart6.addLine("#000000", "Plethysmogramm");
 
     var chart7 = chartManager.addChart();
-    chart7.addLine("000000", "Aktivitaet");
+    chart7.addLine("#000000", "Aktivitaet");
 
     //chartManager.addHorizontalScale({ before: chart4, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Center });
     chartManager.addHorizontalScale({ after: chart7, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Top });
@@ -2110,7 +2205,7 @@ class HorizontalScale {
         // 2. passende Skala-Range für diese Sekundenzahl ermitteln (z.B. 77 Sekunden -> Skala Range für 60 Sekunden)
         const stepRange = chartManager.HScaleRanges.find(h => secondsPerMinDist >= h.seconds);
         // 3. Schrittweite für diese Skala-Range (60 Sekunden = z.B. 3.5 Pixel) ermitteln
-        const pixelStep = stepRange.seconds / secondsPerPixel;
+        const pixelStep = stepRange.seconds / secondsPerPixel * chartManager.maximumXStepDivider;
 
         // Startwerte initialisieren
         var posX = pixelStep;
