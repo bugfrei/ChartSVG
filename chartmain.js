@@ -2,6 +2,7 @@
 const DEFAULT_ZOOM_FREQ = null;         // Zoomfaktor wird berechnet für vollansicht (Anzahl Messwerte / Window.Width)
 //const DIAGRAM_HEIGHT = 88;
 const DIAGRAM_HEIGHT = 80;
+const DEFAULT_XGAP = 1;
 const SELECTION_COLOR = "#0000FF";
 const SELECTION_OPACITY = 0.5;
 const SELECTION_TITELCOLOR = "#FF0000";
@@ -48,18 +49,17 @@ class ChartManager {
         this._partValuesStart = 0; // Default von Anfang an
         this._partValuesCount = this.json.data.length; // Default alles anzeigen (wird beim Änderung von ZoomFreq und MaxFreq berechnet)
 
+        this.allZoom = ((this.json.data.length) / (window.innerWidth - 30)) * 2; // * 2 notwendig, da Standardansicht IMMER Min/Max verwendet und damit 2 Datenpunkte pro Value anstehen
         this.dataManager = dataManager;
+        this.xGap = DEFAULT_XGAP;
         if (DEFAULT_ZOOM_FREQ) {
             this._zoom_freq = DEFAULT_ZOOM_FREQ;
         }
         else {
-            const valueCount = this.json.data.length;
-            const width = window.innerWidth - 30;
-            this._zoom_freq = (valueCount / width) * 2; // * 2 notwendig, da Standardansicht IMMER Min/Max verwendet und damit 2 Datenpunkte pro Value anstehen
+            this._zoom_freq = this.allZoom;
             // Damit diese Platz haben muss der Zoom halb zu groß sein
         }
-        this.xGap = 1;
-        this.maximumXStepDivider = 1;
+        this._maximumXStepDivider = 1;
         this.charts = [];
         this._maxFreq = 0;
         this._dialogNr = 0;         // Fortlaufende Nummer zur identifikation neuer Dialoge
@@ -356,14 +356,32 @@ class ChartManager {
         window.onkeydown = keyDown;
         var wrapperDIV = createDIV();
         wrapperDIV.setAttribute('class', 'chartWrapper');
+        wrapperDIV.setAttribute('id', 'fixWrapper');
+        this.wrapperDIV = wrapperDIV;
         mainDIV.appendChild(wrapperDIV);
+
 
         var areawrapperDIV = createDIV();
         areawrapperDIV.setAttribute('class', 'chartAreaWrapper');
         wrapperDIV.appendChild(areawrapperDIV);
         this.div = areawrapperDIV;
+        this.mainDIV = mainDIV;
     }
 
+    addDIVTop() {
+        var div = createDIV();
+        this.mainDIV.insertBefore(div, this.wrapperDIV);
+        return div;
+    }
+    addDIVBottom() {
+        var div = createDIV();
+        this.mainDIV.appendChild(div);
+        return div;
+    }
+
+    //get maximumXStepDivider() { return this._maximumXStepDivider / (1 + this.xGap) * 2; }
+    get maximumXStepDivider() { return this._maximumXStepDivider / 2 * (1 + this.xGap); }
+    set maximumXStepDivider(d) { this._maximumXStepDivider = d; }
     addHorizontalScale({ before, after, height, align }) {
         var hs = new HorizontalScale({ before, after, height, align });
         this._horizontalScale.push(hs);
@@ -735,6 +753,11 @@ function createDIV() {
 function createElement(el) {
     return document.createElement(el);
 }
+function createInput(type) {
+    var element = createElement("input");
+    element.setAttribute("type", type);
+    return element;
+}
 
 function createSVG() {
     return document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -769,6 +792,9 @@ function createPath(attributes) {
 }
 function createButton() {
     return document.createElement('button');
+}
+function createSpan() {
+    return document.createElement('span');
 }
 function secondFormat(seconds, format) {
     if (seconds > 1000000) {
@@ -2094,9 +2120,461 @@ async function start() {
 
     //chartManager.addHorizontalScale({ before: chart4, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Center });
     chartManager.addHorizontalScale({ after: chart7, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Top });
-
     chartManager.createAll();
     loadMarks();
+
+    // DEMO UI ELEMENTE
+    /// #start weiss
+    const top2UIDIV = chartManager.addDIVTop();
+    const UITop2 = new UIManager({
+        div: top2UIDIV, height: "100px",
+        elementsData: [
+            {
+                name: "Test",
+                position: 1,
+                visible: true,
+                enabled: true,
+                type: ELEMENTTYPES.Button,
+                function: testButton,
+                label: "Test",
+                class: "styled"
+            },
+            {
+                name: "Es geht",
+                position: 2,
+                visible: true,
+                enabled: true,
+                type: ELEMENTTYPES.Button,
+                function: function () { alert("Es geht"); },
+                label: "Es geht",
+                class: "styled"
+            },
+            {
+                name: "Spacer",
+                position: 3,
+                visible: true,
+                enabled: true,
+                type: ELEMENTTYPES.Spacer,
+                width: "10px",
+            },
+            {
+                name: "IMG1",
+                position: 4,
+                visible: true,
+                enabled: true,
+                type: ELEMENTTYPES.Button,
+                function: () => { alert("Zurück"); },
+                label: "<img src='https://icons.veryicon.com/png/System/Cristal%20Intense/Fleche%20gauche%20bleue.png' width=16 />",
+                class: "styled"
+            },
+            {
+                name: "IMG2",
+                position: 5,
+                visible: true,
+                enabled: true,
+                type: ELEMENTTYPES.ImageButton,
+                function: function () { alert("Vor"); },
+                src: "https://icons.veryicon.com/png/System/Cristal%20Intense/Fleche%20droite%20bleue.png",
+                width: "16px",
+                height: "16px",
+                class: "styled"
+            },
+            {
+                name: "SVG",
+                position: 6,
+                visible: true,
+                enabled: true,
+                type: ELEMENTTYPES.SVGButton,
+                function: function () { alert("SVG Record"); },
+                xml: '<circle cx="8" cy="8" r="6" stroke="black" stroke-width="1" fill="red" />',
+                width: "16px",
+                height: "16px",
+                class: "styled"
+            },
+            {
+                name: "CHECK",
+                position: 7,
+                visible: true,
+                enabled: true,
+                type: ELEMENTTYPES.Checkbox,
+                function: mitParameter,
+                id: "testCheck",
+                value: false,
+                label: "AnAus"
+            },
+            {
+                name: "NUMBER",
+                position: 8,
+                visible: true,
+                enabled: true,
+                type: ELEMENTTYPES.Number,
+                function: fuerNumber,
+                id: "testNumber",
+                value: 10,
+                min: 1,
+                max: 100,
+                label: "Von 1 bis 100"
+            },
+            {
+                name: "Zoom:",
+                position: 8.5,
+                visible: true,
+                enabled: true,
+                text: "Zoom:",
+                type: ELEMENTTYPES.Label,
+                style: "padding-left: 5px"
+            },
+            {
+                name: "OPT1",
+                position: 9,
+                visible: true,
+                enabled: true,
+                type: ELEMENTTYPES.Radio,
+                function: fuerRadio,
+                id: "radioG1A",
+                value: 1,
+                group: "G1",
+                label: "1",
+                checked: false
+            },
+            {
+                name: "OPT2",
+                position: 10,
+                visible: true,
+                enabled: true,
+                type: ELEMENTTYPES.Radio,
+                function: fuerRadio,
+                id: "radioG1B",
+                value: 2,
+                group: "G1",
+                label: "2",
+                checked: true
+            },
+            {
+                name: "Datengröße",
+                position: 10.5,
+                visible: true,
+                enabled: true,
+                text: "Größe:",
+                type: ELEMENTTYPES.Label,
+                style: "padding-left: 5px"
+            },
+            {
+                name: "OPT3",
+                position: 11,
+                visible: true,
+                enabled: true,
+                type: ELEMENTTYPES.Radio,
+                function: fuerRadio,
+                id: "radioG2A",
+                value: 10,
+                group: "G2",
+                label: "10",
+                checked: true
+            },
+            {
+                name: "OPT4",
+                position: 12,
+                visible: true,
+                enabled: true,
+                type: ELEMENTTYPES.Radio,
+                function: fuerRadio,
+                id: "radioG2B",
+                value: 20,
+                group: "G2",
+                label: "20",
+                checked: false
+            },
+            {
+                name: "Bereich",
+                position: 13,
+                visible: true,
+                enable: true,
+                type: ELEMENTTYPES.Range,
+                function: fuerNumber,
+                id: "range",
+                value: 20,
+                min: 1,
+                max: 100,
+                label: "Bereichwahl:",
+                labelStyle: "padding-left: 5px"
+            },
+            {
+                name: "Name",
+                position: 14,
+                visible: true,
+                enable: true,
+                type: ELEMENTTYPES.Text,
+                function: fuerNumber,
+                id: "text",
+                value: "Bitte ändern",
+                label: "Name:",
+                labelStyle: "padding-left: 5px"
+            },
+            {
+                name: "Zeit",
+                position: 14,
+                visible: true,
+                enable: true,
+                type: ELEMENTTYPES.Time,
+                function: fuerNumber,
+                id: "zeit",
+                value: "15:00:00",
+                label: "Zeit:",
+                labelStyle: "padding-left: 5px"
+            },
+            {
+                name: "Auswahl",
+                position: 15,
+                visible: true,
+                enable: true,
+                type: ELEMENTTYPES.Select,
+                function: fuerNumber,
+                id: "select",
+                value: 10,
+                label: "Abstand:",
+                labelStyle: "padding-left: 5px",
+                options: [
+                    { value: 1, text: "1 Pixel" },
+                    { value: 2, text: "2 Pixel" },
+                    { value: 3, text: "3 Pixel" },
+                    { value: 4, text: "4 Pixel" },
+                    { value: 5, text: "5 Pixel" },
+                    { value: 10, text: "10 Pixel" }
+                ]
+            }
+        ]
+    });
+    /// #end weiss
+    UITop2.addCSS(".styled { border: 0; line-height: 1.8; padding: 0 20px; font-size: 1rem; text-align: center; color: #fff; text-shadow: 1px 1px 1px #000; border-radius: 5px; background-color: rgba(200, 200, 250, 1); background-image: linear-gradient(to top left, rgba(0, 0, 0, .2), rgba(0, 0, 0, .2) 30%, rgba(0, 0, 0, 0)); box-shadow: inset 2px 2px 3px rgba(255, 255, 255, .6), inset -2px -2px 3px rgba(0, 0, 0, .6); } .styled:hover { background-color: rgba(255, 0, 0, 1); } .styled:active { box-shadow: inset -2px -2px 3px rgba(255, 255, 255, .6), inset 2px 2px 3px rgba(0, 0, 0, .6); }");
+    //UITop.addCSS("input[type=checkbox] { visibility: hidden; } .checkbox-example { width: 45px; height: 15px; background: #555; margin: 20px 10px; position: relative; border-radius: 5px; } .checkbox-example label { display: block; width: 18px; height: 18px; border-radius: 50%; transition: all .5s ease; cursor: pointer; position: absolute; top: -2px; left: -3px; background: #ccc; } .checkbox-example input[type=checkbox]:checked + label { left: 27px; }");
+    UITop2.create();
+
+    // FUNKTIONALE UI ELEMENTE
+    /// #start rot
+    const topUIDIV = chartManager.addDIVTop();
+    const UITop = new UIManager({
+        div: topUIDIV, height: "100px",
+        elementsData: [
+            {
+                name: "ScrollPageLeft",
+                position: 1.2,
+                visible: true,
+                enabled: true,
+                type: ELEMENTTYPES.Button,
+                function: ButtonEvent_ScrollPageLeft,
+                label: "⇤",
+                class: "styled",
+            },
+            {
+                name: "ScrollRangeLeft",
+                position: 1.4,
+                visible: true,
+                enabled: true,
+                type: ELEMENTTYPES.Button,
+                function: ButtonEvent_ScrollRangeLeft,
+                label: "←",
+                class: "styled"
+            },
+            {
+                name: "ScrollRangeRight",
+                position: 1.6,
+                visible: true,
+                enabled: true,
+                type: ELEMENTTYPES.Button,
+                function: ButtonEvent_ScrollRangeRight,
+                label: "→",
+                class: "styled"
+            },
+            {
+                name: "ScrollPageRight",
+                position: 1.8,
+                visible: true,
+                enabled: true,
+                type: ELEMENTTYPES.Button,
+                function: ButtonEvent_ScrollPageRight,
+                label: "⇥",
+                class: "styled"
+            },
+            {
+                name: "AllZoom",
+                position: 2,
+                visible: true,
+                enabled: true,
+                type: ELEMENTTYPES.Button,
+                function: ButtonEvent_AllZoom,
+                label: "Alles",
+                class: "styled",
+                style: "margin-left: 5px"
+            },
+            {
+                name: "ZoomOut",
+                position: 2,
+                visible: true,
+                enabled: true,
+                type: ELEMENTTYPES.Button,
+                function: ButtonEvent_ZoomOut,
+                label: "🔎",
+                class: "styled",
+                style: "margin-left: 5px"
+            },
+
+        ]
+    });
+    /// #end rot
+    UITop.addCSS(".styled { border: 0; line-height: 1.8; padding: 0 20px; font-size: 1rem; text-align: center; color: #fff; text-shadow: 1px 1px 1px #000; border-radius: 5px; background-color: rgba(200, 200, 250, 1); background-image: linear-gradient(to top left, rgba(0, 0, 0, .2), rgba(0, 0, 0, .2) 30%, rgba(0, 0, 0, 0)); box-shadow: inset 2px 2px 3px rgba(255, 255, 255, .6), inset -2px -2px 3px rgba(0, 0, 0, .6); } .styled:hover { background-color: rgba(255, 0, 0, 1); } .styled:active { box-shadow: inset -2px -2px 3px rgba(255, 255, 255, .6), inset 2px 2px 3px rgba(0, 0, 0, .6); }");
+    //UITop.addCSS("input[type=checkbox] { visibility: hidden; } .checkbox-example { width: 45px; height: 15px; background: #555; margin: 20px 10px; position: relative; border-radius: 5px; } .checkbox-example label { display: block; width: 18px; height: 18px; border-radius: 50%; transition: all .5s ease; cursor: pointer; position: absolute; top: -2px; left: -3px; background: #ccc; } .checkbox-example input[type=checkbox]:checked + label { left: 27px; }");
+    UITop.create();
+
+    // BUTTONS EVENTS
+    /// #start gelb
+    function ButtonEvent_ScrollPageLeft(eventArgs) {
+        scroll(-100);
+    }
+    function ButtonEvent_ScrollRangeLeft(eventArgs) {
+        scroll(-90);
+    }
+    function ButtonEvent_ScrollRangeRight(eventArgs) {
+        scroll(90);
+    }
+    function ButtonEvent_ScrollPageRight(eventArgs) {
+        scroll(100);
+    }
+    function ButtonEvent_AllZoom(eventArgs) {
+        chartManager.partValuesStart = 0;
+        chartManager.partValuesCount = chartManager.json.data.length;
+        chartManager.zoomFreq = chartManager.allZoom;
+    }
+    function ButtonEvent_ZoomOut(eventArgs) {
+        var pvcOld = chartManager.partValuesCount;
+        chartManager.partValuesCount *= 1.5;
+        pvcOld = chartManager.partValuesCount - pvcOld / 1.5;
+        pvcOld / 1.5;
+
+        chartManager.zoomFreq *= 1.5;
+        if (chartManager.zoomFreq >= chartManager.allZoom) {
+            chartManager.partValuesStart = 0;
+            chartManager.partValuesCount = chartManager.json.data.length;
+            chartManager.zoomFreq = chartManager.allZoom;
+        }
+    }
+    /// #end gelb
+    /**
+     * 
+     * @param {Richtung und Scrollbreite in % (-100 = voll links...100 = voll rechts)} sizePercent 
+     */
+    function scroll(sizePercent) {
+        const chartDiv = chartManager.div;
+        const scrollWidth = chartDiv.scrollWidth;
+        const clientWidth = chartDiv.clientWidth;
+        const scroll = clientWidth / 100 * sizePercent;
+        const partStart = chartManager.partValuesStart;
+        const partCount = chartManager.partValuesCount;
+        var newScrollLeft = chartDiv.scrollLeft + scroll;
+
+        if (chartManager.json.data.length == chartManager.partValuesCount) {
+            // Alles sichtbar, es muss nur die Scrollposition verändert werden
+            if (newScrollLeft < 0) {
+                newScrollLeft = 0;
+            }
+            chartDiv.scrollLeft = newScrollLeft;
+        }
+        else {
+            if (newScrollLeft < 0) {
+                var negativPartStart = 0;
+                var newPartStart = partStart - partCount + (chartDiv.scrollLeft * chartManager.zoomFreq / chartManager.maximumXStepDivider);
+                if (Math.abs(sizePercent) != 100) {
+                    var percentRest = 100 - Math.abs(sizePercent);
+                    var pixelRest = clientWidth / 100 * percentRest;
+                    var valuesRest = pixelRest * chartManager.zoomFreq / chartManager.maximumXStepDivider;
+                    newPartStart += valuesRest;
+                }
+                if (newPartStart < 0) {
+                    negativPartStart = newPartStart * -1;
+                    newPartStart = 0;
+                }
+                if (chartManager.partValuesStart != newPartStart) {
+                    chartManager.partValuesStart = newPartStart;
+                    chartManager.createAll();
+                }
+                newScrollLeft = chartManager.div.scrollWidth - chartManager.div.clientWidth;
+                if (negativPartStart > 0) {
+                    newScrollLeft -= (negativPartStart / chartManager.zoomFreq * chartManager.maximumXStepDivider);
+                }
+                chartDiv.scrollLeft = newScrollLeft;
+                //debugger;
+            }
+            else {
+                if (newScrollLeft + clientWidth > scrollWidth) {
+                    var partStartOverflow = 0;
+                    var scrollDiff = chartDiv.scrollWidth - chartDiv.scrollLeft - chartDiv.clientWidth;
+                    const dataLength = chartManager.json.data.length;
+
+                    var newPartStart = partStart + partCount - (scrollDiff * chartManager.zoomFreq / chartManager.maximumXStepDivider);
+                    if (Math.abs(sizePercent) != 100) {
+                        var percentRest = 100 - Math.abs(sizePercent);
+                        var pixelRest = clientWidth / 100 * percentRest;
+                        var valuesRest = pixelRest * chartManager.zoomFreq / chartManager.maximumXStepDivider;
+                        newPartStart -= valuesRest;
+                    }
+                    if (newPartStart + partCount > dataLength) {
+                        partStartOverflow = newPartStart + partCount - dataLength;
+                        newPartStart = dataLength - partCount;
+                    }
+                    if (chartManager.partValuesStart != newPartStart) {
+                        chartManager.partValuesStart = newPartStart;
+                        chartManager.createAll();
+                    }
+                    newScrollLeft = 0;
+                    if (partStartOverflow > 0) {
+                        newScrollLeft = (partStartOverflow / chartManager.zoomFreq * chartManager.maximumXStepDivider);
+                    }
+                    chartDiv.scrollLeft = newScrollLeft;
+                }
+                chartDiv.scrollLeft = newScrollLeft;
+            }
+        }
+
+
+
+        console.log(`[INFO] Scrolling ${sizePercent}%`);
+    }
+    function dtest() {
+
+    }
+
+
+
+    /// #end gelb
+    function testButton(e) {
+        const htmlElement = e.srcElement;
+        const uiElement = htmlElement.UIElement;
+        const uiManager = uiElement.uiManager;
+
+        var esGeht = uiManager.getUIElementFromName("Auswahl");
+
+
+        esGeht.Value = 3;
+    }
+    function fuerRadio(e) {
+        console.log('Radio');
+
+    }
+    function mitParameter(p) {
+        if (p.srcElement.checked) {
+
+            alert("An");
+        }
+        else {
+            alert("Aus");
+        }
+    }
+    function fuerNumber(e) {
+        const htmlElement = e.srcElement;
+        const uiElement = htmlElement.UIElement;
+        const uiManager = uiElement.uiManager;
+        console.log(uiElement.Value);
+    }
 }
 
 function loadMarks() {
@@ -2285,8 +2763,366 @@ class HorizontalScale {
             txt.setAttribute('y', textYPos + ((txt.getBoundingClientRect().height / 2) * textYFactor));
         }
     }
+}
+
+const ELEMENTTYPES = {
+    Button: "button",
+    ImageButton: "imagebutton",
+    SVGButton: "svgbutton",
+    Spacer: "spacer",
+    Checkbox: "checkbox",
+    Number: "number",
+    Radio: "radio",
+    Range: "range",
+    Text: "text",
+    Time: "time",
+    Label: "label",
+    Select: "select"
+}
+
+class UIElement {
+    constructor(data, uiManager) {
+        this.data = data;
+        this.uiManager = uiManager;
+        this.htmlElement = null;
+        this.labelElement = null;
+        this.imgElement = null;
+        this.svgElement = null;
+    }
+    get Visible() { return this.data.visible; }
+    set Visible(visibility) {
+        this.htmlElement.style.setProperty("display", visibility ? "" : "none");
+        this.data.visible = visibility;
+    }
+    get Enable() { return this.data.eneble; }
+    set Enable(enable) {
+        this.htmlElement.disabled = !enable;
+        this.data.enable = enable;
+    }
+    get Position() { return this.data.position; }
+    set Position(position) {
+        // TODO Position des Elementds ändern mittels uiManager.create()
+        this.data.position = position;
+        this.uiManager.create();
+    }
+    get Value() {
+        switch (this.data.type) {
+            case ELEMENTTYPES.Checkbox:
+                return this.htmlElement.checked;
+            case ELEMENTTYPES.Number:
+                return this.htmlElement.value;
+            case ELEMENTTYPES.Radio:
+                return this.htmlElement.checked;
+            case ELEMENTTYPES.Range:
+                return this.htmlElement.value;
+            case ELEMENTTYPES.Text:
+                return this.htmlElement.value;
+            case ELEMENTTYPES.Time:
+                return this.htmlElement.value;
+            case ELEMENTTYPES.Select:
+                return this.htmlElement.value;
+        }
+    }
+    set Value(value) {
+        switch (this.data.type) {
+            case ELEMENTTYPES.Checkbox:
+                this.htmlElement.checked = value;
+                break;
+            case ELEMENTTYPES.Number:
+                this.htmlElement.value = value;
+                break;
+            case ELEMENTTYPES.Radio:
+                this.htmlElement.checked = value;
+                break;
+            case ELEMENTTYPES.Range:
+                this.htmlElement.value = value;
+                break;
+            case ELEMENTTYPES.Text:
+                this.htmlElement.value = value;
+                break;
+            case ELEMENTTYPES.Time:
+                this.htmlElement.value = value;
+                break;
+            case ELEMENTTYPES.Select:
+                this.htmlElement.value = value;
+                break;
+        }
+    }
+}
+
+class UIManager {
+    constructor({ div, height, elementsData }) {
+        this.div = div;
+        this.height = height;
+        this.uiElements = [];
+        elementsData.forEach(e => {
+            var uielement = new UIElement(e, this);
+            this.uiElements.push(uielement);
+        });
+    }
+
+    getUIElementFromName(name) {
+        return this.uiElements.find(e => e.data.name == name);
+    }
+
+    addCSS(css) {
+        var head = document.getElementsByTagName('head')[0];
+        var s = createElement("style");
+        s.setAttribute("type", "text/css");
+        if (s.styleSheet) {
+            s.styleSheet.cssText = css;
+        }
+        else {
+            s.appendChild(document.createTextNode(css));
+        }
+        head.appendChild(s);
+    }
+    create() {
+        //this.div.setAttribute("height", this.height);
+
+        this.draw();
+    }
+    draw() {
+        while (this.div.childNodes.length > 0) this.div.removeChild(this.div.firstChild);
+        this.uiElements.sort((a, b) => a.data.position - b.data.position);
+        this.uiElements.forEach(e => {
+            if (e.data.visible) {
+                var element = null;
+                var labelElement = null;
+                var imgElement = null;
+                var svgElement = null;
+                var data = e.data;
+
+                switch (data.type) {
+                    case ELEMENTTYPES.Button:
+                        element = createButton();
+                        element.innerHTML = data.label;
+                        this.div.appendChild(element);
+                        element.onclick = data.function;
+                        break;
+                    case ELEMENTTYPES.ImageButton:
+                        element = createButton();
+                        imgElement = createElement("img");
+                        imgElement.setAttribute("src", data.src);
+                        if (data.width) imgElement.setAttribute("width", data.width);
+                        if (data.height) imgElement.setAttribute("height", data.height);
+                        element.appendChild(imgElement);
+                        this.div.appendChild(element);
+                        element.onclick = data.function;
+                        break;
+                    case ELEMENTTYPES.SVGButton:
+                        element = createButton();
+                        svgElement = createSVG();
+                        svgElement.innerHTML = data.xml;
+                        if (data.width) svgElement.setAttribute("width", data.width);
+                        if (data.height) svgElement.setAttribute("height", data.height);
+                        element.appendChild(svgElement);
+                        this.div.appendChild(element);
+                        element.onclick = data.function;
+                        break;
+                    case ELEMENTTYPES.Spacer:
+                        element = createElement("canvas");
+                        element.setAttribute("width", data.width);
+                        element.setAttribute("height", 1);
+                        this.div.appendChild(element);
+                        break;
+                    case ELEMENTTYPES.Checkbox:
+                        element = createInput("checkbox");
+                        if (data.value) {
+                            element.setAttribute("checked", "");
+                        }
+                        element.onclick = data.function;
+                        if (data.label) {
+                            labelElement = createElement("label");
+                            labelElement.setAttribute("for", data.id);
+                            labelElement.innerHTML = data.label;
+                            this.div.appendChild(labelElement);
+                            if (data.labelClass) {
+                                labelElement.setAttribute("class", data.labelClass);
+                            }
+                            if (data.labelStyle) {
+                                labelElement.setAttribute("style", data.labelStyle);
+                            }
+                        }
+                        this.div.appendChild(element);
+                        break;
+                    case ELEMENTTYPES.Number:
+                        element = createInput("number");
+                        if (data.value) {
+                            element.setAttribute("value", data.value);
+                        }
+                        if (data.min) element.setAttribute("min", data.min);
+                        if (data.max) element.setAttribute("max", data.max);
+                        element.onclick = data.function;
+                        element.onchange = data.function;
+
+                        if (data.label) {
+                            labelElement = createElement("label");
+                            labelElement.setAttribute("for", data.id);
+                            labelElement.innerHTML = data.label;
+                            this.div.appendChild(labelElement);
+                            if (data.labelClass) {
+                                labelElement.setAttribute("class", data.labelClass);
+                            }
+                            if (data.labelStyle) {
+                                labelElement.setAttribute("style", data.labelStyle);
+                            }
+                        }
+                        this.div.appendChild(element);
+                        break;
+                    case ELEMENTTYPES.Radio:
+                        element = createInput("radio");
+                        if (data.value) {
+                            element.setAttribute("value", data.value);
+                        }
+                        element.onclick = data.function;
+                        element.onchange = data.function;
+
+                        if (data.label) {
+                            labelElement = createElement("label");
+                            labelElement.setAttribute("for", data.id);
+                            labelElement.innerHTML = data.label;
+                            this.div.appendChild(labelElement);
+                            if (data.labelClass) {
+                                labelElement.setAttribute("class", data.labelClass);
+                            }
+                            if (data.labelStyle) {
+                                labelElement.setAttribute("style", data.labelStyle);
+                            }
+                        }
+                        if (data.checked) {
+                            element.setAttribute("checked", "");
+                        }
+                        this.div.appendChild(element);
+                        break;
+                    case ELEMENTTYPES.Label:
+                        element = createElement("label");
+                        element.innerHTML = data.text;
+                        this.div.appendChild(element);
+                        break;
+                    case ELEMENTTYPES.Range:
+                        element = createInput("range");
+                        if (data.value) {
+                            element.setAttribute("value", data.value);
+                        }
+                        if (data.min) element.setAttribute("min", data.min);
+                        if (data.max) element.setAttribute("max", data.max);
+                        element.onclick = data.function;
+                        element.onchange = data.function;
+
+                        if (data.label) {
+                            labelElement = createElement("label");
+                            labelElement.setAttribute("for", data.id);
+                            labelElement.innerHTML = data.label;
+                            this.div.appendChild(labelElement);
+                            if (data.labelClass) {
+                                labelElement.setAttribute("class", data.labelClass);
+                            }
+                            if (data.labelStyle) {
+                                labelElement.setAttribute("style", data.labelStyle);
+                            }
+                        }
+                        this.div.appendChild(element);
+                        break;
+                    case ELEMENTTYPES.Text:
+                        element = createInput("text");
+                        if (data.value) {
+                            element.setAttribute("value", data.value);
+                        }
+                        element.onchange = data.function;
+
+                        if (data.label) {
+                            labelElement = createElement("label");
+                            labelElement.setAttribute("for", data.id);
+                            labelElement.innerHTML = data.label;
+                            this.div.appendChild(labelElement);
+                            if (data.labelClass) {
+                                labelElement.setAttribute("class", data.labelClass);
+                            }
+                            if (data.labelStyle) {
+                                labelElement.setAttribute("style", data.labelStyle);
+                            }
+                        }
+                        this.div.appendChild(element);
+                        break;
+                    case ELEMENTTYPES.Time:
+                        element = createInput("time");
+                        if (data.value) {
+                            element.setAttribute("value", data.value);
+                        }
+                        element.onchange = data.function;
+
+                        if (data.label) {
+                            labelElement = createElement("label");
+                            labelElement.setAttribute("for", data.id);
+                            labelElement.innerHTML = data.label;
+                            this.div.appendChild(labelElement);
+                            if (data.labelClass) {
+                                labelElement.setAttribute("class", data.labelClass);
+                            }
+                            if (data.labelStyle) {
+                                labelElement.setAttribute("style", data.labelStyle);
+                            }
+                        }
+                        this.div.appendChild(element);
+                        break;
+                    case ELEMENTTYPES.Select:
+                        element = createElement("select");
+                        element.onchange = data.function;
+                        if (data.label) {
+                            labelElement = createElement("label");
+                            labelElement.setAttribute("for", data.id);
+                            labelElement.innerHTML = data.label;
+                            this.div.appendChild(labelElement);
+                            if (data.labelClass) {
+                                labelElement.setAttribute("class", data.labelClass);
+                            }
+                            if (data.labelStyle) {
+                                labelElement.setAttribute("style", data.labelStyle);
+                            }
+                        }
+                        data.options.forEach(o => {
+                            var optionElement = createElement("option");
+                            optionElement.value = o.value;
+                            optionElement.innerHTML = o.text;
+                            element.appendChild(optionElement);
+                        });
+                        if (data.value) {
+                            element.setAttribute("value", data.value);
+                            element.value = data.value;
+                        }
+                        this.div.appendChild(element);
+
+                        break;
+                }
+            }
+
+            if (data.class) element.setAttribute("class", data.class);
+            if (data.style) element.setAttribute("style", data.style);
+            if (data.id) {
+                element.setAttribute("id", data.id);
+                if (data.group) {
+                    element.setAttribute("name", data.group);
+                }
+                else {
+                    element.setAttribute("name", data.id);
+                }
+            }
+            else {
+                if (data.group) {
+                    element.setAttribute("name", data.group);
+                }
+            }
 
 
+            // Elemente des UIElement (e) zuweisen
+            element.UIElement = e;
+            e.htmlElement = element;
+            e.labelElement = labelElement;
+            e.imgElement = imgElement;
+            e.svgElement = svgElement;
+        });
+    }
 }
 
 
