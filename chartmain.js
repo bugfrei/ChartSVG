@@ -2131,14 +2131,14 @@ async function start() {
         div: top2UIDIV, height: "100px",
         elementsData: [
             {
-                name: "Test",
+                name: "ButtonLinks",
                 position: 1,
                 visible: true,
                 enabled: true,
                 type: ELEMENTTYPES.Button,
                 function: testButton,
                 label: "Test",
-                class: "styled"
+                class: ""
             },
             {
                 name: "Es geht",
@@ -2347,7 +2347,7 @@ async function start() {
         ]
     });
     /// #end weiss
-    UITop2.addCSS(".styled { border: 0; line-height: 1.8; padding: 0 20px; font-size: 1rem; text-align: center; color: #fff; text-shadow: 1px 1px 1px #000; border-radius: 5px; background-color: rgba(200, 200, 250, 1); background-image: linear-gradient(to top left, rgba(0, 0, 0, .2), rgba(0, 0, 0, .2) 30%, rgba(0, 0, 0, 0)); box-shadow: inset 2px 2px 3px rgba(255, 255, 255, .6), inset -2px -2px 3px rgba(0, 0, 0, .6); } .styled:hover { background-color: rgba(255, 0, 0, 1); } .styled:active { box-shadow: inset -2px -2px 3px rgba(255, 255, 255, .6), inset 2px 2px 3px rgba(0, 0, 0, .6); }");
+    UITop2.addCSS(".btn{background-color:#fff;border:1px solid #0854a0;border-radius:5px;color:#0854a0;padding:0;font-size:18px;cursor:pointer;min-width:117px;min-height:38px;margin:0 5px 0 0}.btnGrpLeft{border-radius:5px 0 0 5px;margin:0}.btnGrpInner{border-left:none;border-radius:0 0 0 0;margin:0}.btnGrpRight{border-left:none;border-radius:0 5px 5px 0;margin:0 5px 0 0}.btn:hover{background-color:#ebf5fe;transition:.7s}.btn:active{background-color:#0854a0;transition:0;color:#fff}.btn:disabled{background-color:gray;opacity:50}");
     //UITop.addCSS("input[type=checkbox] { visibility: hidden; } .checkbox-example { width: 45px; height: 15px; background: #555; margin: 20px 10px; position: relative; border-radius: 5px; } .checkbox-example label { display: block; width: 18px; height: 18px; border-radius: 50%; transition: all .5s ease; cursor: pointer; position: absolute; top: -2px; left: -3px; background: #ccc; } .checkbox-example input[type=checkbox]:checked + label { left: 27px; }");
     UITop2.create();
 
@@ -2364,8 +2364,8 @@ async function start() {
                 enabled: true,
                 type: ELEMENTTYPES.Button,
                 function: ButtonEvent_ScrollPageLeft,
-                label: "⇤",
-                class: "styled",
+                label: "<i class='fa-solid fa-angles-left fa-lg'></i>",
+                class: "btn btnGrpLeft"
             },
             {
                 name: "ScrollRangeLeft",
@@ -2374,8 +2374,8 @@ async function start() {
                 enabled: true,
                 type: ELEMENTTYPES.Button,
                 function: ButtonEvent_ScrollRangeLeft,
-                label: "←",
-                class: "styled"
+                label: "<i class='fa-solid fa-angle-left fa-lg'></i>",
+                class: "btn btnGrpInner"
             },
             {
                 name: "ScrollRangeRight",
@@ -2384,8 +2384,8 @@ async function start() {
                 enabled: true,
                 type: ELEMENTTYPES.Button,
                 function: ButtonEvent_ScrollRangeRight,
-                label: "→",
-                class: "styled"
+                label: "<i class='fa-solid fa-angle-right fa-lg'></i>",
+                class: "btn btnGrpInner"
             },
             {
                 name: "ScrollPageRight",
@@ -2394,8 +2394,8 @@ async function start() {
                 enabled: true,
                 type: ELEMENTTYPES.Button,
                 function: ButtonEvent_ScrollPageRight,
-                label: "⇥",
-                class: "styled"
+                label: "<i class='fa-solid fa-angles-right fa-lg'></i>",
+                class: "btn btnGrpRight"
             },
             {
                 name: "AllZoom",
@@ -2405,8 +2405,8 @@ async function start() {
                 type: ELEMENTTYPES.Button,
                 function: ButtonEvent_AllZoom,
                 label: "Alles",
-                class: "styled",
-                style: "margin-left: 5px"
+                class: "btn btnGrpLeft",
+                style: ""
             },
             {
                 name: "ZoomOut",
@@ -2415,9 +2415,9 @@ async function start() {
                 enabled: true,
                 type: ELEMENTTYPES.Button,
                 function: ButtonEvent_ZoomOut,
-                label: "🔎",
-                class: "styled",
-                style: "margin-left: 5px"
+                label: "<i class='fa-solid fa-magnifying-glass-minus fa-lg'></i>",
+                class: "btn btnGrpRight",
+                style: ""
             },
 
         ]
