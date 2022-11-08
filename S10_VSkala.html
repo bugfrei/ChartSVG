@@ -9,6 +9,7 @@
     <style>
         .chartWrapper {
             position: relative;
+            overflow-x: auto;
         }
 
         .chartWrapper>SVG {
@@ -27,24 +28,41 @@
 
 <body>
     <div id="chart">
+        <div style="float:right;width:100%;height:80px;background-color:#888888;">
+            MENÜ TOP
+        </div>
+        <div style="float:left;width:100px;height:450px;background-color:#ff00ff;">
+            MENÜ LEFT
+        </div>
+        <div style="float:right;width:100px;height:450px;background-color:#ff00ff;">
+            MENÜ RIGHT
+        </div>
 
-        <div class="chartWrapper" id="fixWrapper">
-            <div>
-                <svg style="width:20000px;background-color: #888888">
-                    <line x1="0" y1="0" x2="2000" y2="150" style="stroke: #000000" />
-                    <line x1="2000" y1="150" x2="4000" y2="0" style="stroke: #000000" />
-                    <line x1="4000" y1="0" x2="6000" y2="150" style="stroke: #000000" />
-                    <line x1="6000" y1="150" x2="8000" y2="0" style="stroke: #000000" />
-                    <line x1="8000" y1="0" x2="10000" y2="150" style="stroke: #000000" />
-                    <line x1="10000" y1="150" x2="12000" y2="0" style="stroke: #000000" />
-                    <line x1="12000" y1="0" x2="14000" y2="150" style="stroke: #000000" />
-                    <line x1="14000" y1="150" x2="16000" y2="0" style="stroke: #000000" />
-                    <line x1="16000" y1="0" x2="18000" y2="150" style="stroke: #000000" />
-                    <line x1="18000" y1="150" x2="20000" y2="0" style="stroke: #000000" />
+        <!-- SKALA Y -->
+        <div style="float: left;width: 100px;height:450px;background-color:#ffff00;">
+            <div style="height:150px;">
+                <svg style="width:100px;height:150px;background-color:#aa0000;padding:0;">
+                    <text x="10" y="20">SKALA 1</text>
                 </svg>
             </div>
-            <div class="chartAreaWrapper">
-                <div>
+
+            <div style="height:150px;">
+                <svg style="width:100px;height:150px;background-color:#00aa00;">
+                    <text x="10" y="20">SKALA 2</text>
+                </svg>
+            </div>
+
+            <div style="height:150px;">
+                <svg style="width:100px;height:150px;background-color:#0000aa;">
+                    <text x="10" y="20">SKALA 3</text>
+                </svg>
+            </div>
+        </div>
+
+        <!-- CHARTS -->
+        <div class="chartWrapper" id="fixWrapper">
+            <div class="chartAreaWrapper" style="height:470px;">
+                <div style="height:150px;">
                     <svg style="width:20000px;background-color: #ff0000;">
                         <line x1="0" y1="0" x2="2000" y2="150" style="stroke: #000000" />
                         <line x1="2000" y1="150" x2="4000" y2="0" style="stroke: #000000" />
@@ -58,7 +76,7 @@
                         <line x1="18000" y1="150" x2="20000" y2="0" style="stroke: #000000" />
                     </svg>
                 </div>
-                <div>
+                <div style="height:150px;">
                     <svg style="width:20000px;background-color: #00ff00;">
                         <line x1="0" y1="0" x2="2000" y2="150" style="stroke: #000000" />
                         <line x1="2000" y1="150" x2="4000" y2="0" style="stroke: #000000" />
@@ -72,7 +90,7 @@
                         <line x1="18000" y1="150" x2="20000" y2="0" style="stroke: #000000" />
                     </svg>
                 </div>
-                <div>
+                <div style="height:150px;">
                     <svg style="width:20000px;background-color: #0000ff;">
                         <line x1="0" y1="0" x2="2000" y2="150" style="stroke: #000000" />
                         <line x1="2000" y1="150" x2="4000" y2="0" style="stroke: #000000" />
@@ -86,9 +104,11 @@
                         <line x1="18000" y1="150" x2="20000" y2="0" style="stroke: #000000" />
                     </svg>
                 </div>
-
             </div>
         </div>
+    </div>
+    <div style="width:100%;height:80px;background-color:#888888;">
+        MENÜ BOTTOM
     </div>
 </body>
 
