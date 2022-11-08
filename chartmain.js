@@ -2138,7 +2138,7 @@ async function start() {
                 type: ELEMENTTYPES.Button,
                 function: testButton,
                 label: "Test",
-                class: ""
+                class: "btn"
             },
             {
                 name: "Es geht",
@@ -2148,16 +2148,16 @@ async function start() {
                 type: ELEMENTTYPES.Button,
                 function: function () { alert("Es geht"); },
                 label: "Es geht",
-                class: "styled"
+                class: "btn"
             },
-            {
-                name: "Spacer",
-                position: 3,
-                visible: true,
-                enabled: true,
-                type: ELEMENTTYPES.Spacer,
-                width: "10px",
-            },
+            // {
+            //     name: "Spacer",
+            //     position: 3,
+            //     visible: true,
+            //     enabled: true,
+            //     type: ELEMENTTYPES.Spacer,
+            //     width: "10px",
+            // },
             {
                 name: "IMG1",
                 position: 4,
@@ -2166,7 +2166,7 @@ async function start() {
                 type: ELEMENTTYPES.Button,
                 function: () => { alert("Zurück"); },
                 label: "<img src='https://icons.veryicon.com/png/System/Cristal%20Intense/Fleche%20gauche%20bleue.png' width=16 />",
-                class: "styled"
+                class: "btn btnGrpLeft"
             },
             {
                 name: "IMG2",
@@ -2178,7 +2178,7 @@ async function start() {
                 src: "https://icons.veryicon.com/png/System/Cristal%20Intense/Fleche%20droite%20bleue.png",
                 width: "16px",
                 height: "16px",
-                class: "styled"
+                class: "btn btnGrpRight"
             },
             {
                 name: "SVG",
@@ -2190,7 +2190,7 @@ async function start() {
                 xml: '<circle cx="8" cy="8" r="6" stroke="black" stroke-width="1" fill="red" />',
                 width: "16px",
                 height: "16px",
-                class: "styled"
+                class: "btn"
             },
             {
                 name: "CHECK",
@@ -2347,7 +2347,7 @@ async function start() {
         ]
     });
     /// #end weiss
-    UITop2.addCSS(".btn{background-color:#fff;border:1px solid #0854a0;border-radius:5px;color:#0854a0;padding:0;font-size:18px;cursor:pointer;min-width:117px;min-height:38px;margin:0 5px 0 0}.btnGrpLeft{border-radius:5px 0 0 5px;margin:0}.btnGrpInner{border-left:none;border-radius:0 0 0 0;margin:0}.btnGrpRight{border-left:none;border-radius:0 5px 5px 0;margin:0 5px 0 0}.btn:hover{background-color:#ebf5fe;transition:.7s}.btn:active{background-color:#0854a0;transition:0;color:#fff}.btn:disabled{background-color:gray;opacity:50}");
+    UITop2.addCSS(".btn{background-color:#fff;border:1px solid #0854a0;border-radius:5px;color:#0854a0;padding:0;font-size:18px;cursor:pointer;min-width:103px;min-height:38px;margin:0 5px 0 0}.btnGrpLeft{border-radius:5px 0 0 5px;margin:0}.btnGrpInner{border-left:none;border-radius:0 0 0 0;margin:0}.btnGrpRight{border-left:none;border-radius:0 5px 5px 0;margin:0 5px 0 0}.btn:hover{background-color:#ebf5fe;transition:.7s}.btn:active{background-color:#0854a0;transition:0;color:#fff}.btn:disabled{background-color:gray;opacity:50}");
     //UITop.addCSS("input[type=checkbox] { visibility: hidden; } .checkbox-example { width: 45px; height: 15px; background: #555; margin: 20px 10px; position: relative; border-radius: 5px; } .checkbox-example label { display: block; width: 18px; height: 18px; border-radius: 50%; transition: all .5s ease; cursor: pointer; position: absolute; top: -2px; left: -3px; background: #ccc; } .checkbox-example input[type=checkbox]:checked + label { left: 27px; }");
     UITop2.create();
 
