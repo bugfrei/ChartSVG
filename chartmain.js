@@ -2118,7 +2118,8 @@ async function start() {
     var chart7 = chartManager.addChart();
     chart7.addLine("#000000", "Aktivitaet");
 
-    //chartManager.addHorizontalScale({ before: chart4, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Center });
+    chartManager.addHorizontalScale({ before: chart2, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Center });
+    chartManager.addHorizontalScale({ before: chart4, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Center });
     chartManager.addHorizontalScale({ after: chart7, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Top });
     chartManager.createAll();
     loadMarks();
