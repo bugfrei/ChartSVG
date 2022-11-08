@@ -2136,8 +2136,8 @@ async function start() {
                 type: ELEMENTTYPES.Button,
                 function: testButton,
                 label: "Test",
-                class: "styled",
-                style: "margin-bottom: 3px"
+                class: "btn",
+                style: "margin-bottom: 3px;"
             },
             {
                 name: "Es geht",
@@ -2251,41 +2251,6 @@ async function start() {
                 checked: true
             },
             {
-                name: "Datengröße",
-                position: 10.5,
-                visible: true,
-                enabled: true,
-                text: "Größe:",
-                type: ELEMENTTYPES.Label,
-                style: "padding-left: 5px"
-            },
-            {
-                name: "OPT3",
-                position: 11,
-                visible: true,
-                enabled: true,
-                type: ELEMENTTYPES.Radio,
-                function: fuerRadio,
-                id: "radioG2A",
-                value: 10,
-                group: "G2",
-                label: "10",
-                checked: true
-            },
-            {
-                name: "OPT4",
-                position: 12,
-                visible: true,
-                enabled: true,
-                type: ELEMENTTYPES.Radio,
-                function: fuerRadio,
-                id: "radioG2B",
-                value: 20,
-                group: "G2",
-                label: "20",
-                checked: false
-            },
-            {
                 name: "Bereich",
                 position: 13,
                 visible: true,
@@ -2296,7 +2261,7 @@ async function start() {
                 value: 20,
                 min: 1,
                 max: 100,
-                label: "Bereichwahl:",
+                label: "Bereich:",
                 labelStyle: "padding-left: 5px"
             },
             {
