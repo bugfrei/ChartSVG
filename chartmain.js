@@ -6,6 +6,7 @@ const DEFAULT_XGAP = 1;
 const DIV_DEFAULT_HEIGHT = "150px";
 const DIV_DEFAULT_WIDTH = "160px";
 const DEFAULT_BACKGROUND = "#FFFFFF";
+const DEFAULT_ZOOMOUT_PERCENT = 30;
 const SELECTION_COLOR = "#0000FF";
 const SELECTION_OPACITY = 0.5;
 const SELECTION_TITELCOLOR = "#FF0000";
@@ -111,6 +112,14 @@ class ChartManager { // @class ChartManager KLASSE
         this._horizontalScale = []; // Auflistung der horizontalen Skalas (in der Regel nur eine für oben)
         this.horizontalScaleShowsTime = false;   // Zeigt die Skala die Uhrzeit (true) oder die Zeitdifferenz (false)
         this.HScaleRanges = [       // die Bereiche, die in der Horizontalen Skala dargestellt werden können @settings HScaleRanges (Seconds, LineHeight,...)
+            {
+                seconds: 14400,      // 4 Stundenabstände
+                minPixelDistForText: HORIZONTAL_SCALE_CAPTION_MINDIST_X,         // Minimum Abstand zwischen 2 Beschriftungen in Pixel
+                height: 80,
+                color: "#000000",
+                width: 1,
+                drawText: false
+            },
             {
                 seconds: 3600,      // Stundenabstände
                 minPixelDistForText: HORIZONTAL_SCALE_CAPTION_MINDIST_X,         // Minimum Abstand zwischen 2 Beschriftungen in Pixel
@@ -412,7 +421,7 @@ class ChartManager { // @class ChartManager KLASSE
     }
 
     get pageWidth() {
-        return Number(window.innerWidth) - 30 - chartManager._verticalScale.reduce((a, b) => a += Number(b.width.replace("px", "")), 0);
+        return Number(window.innerWidth) - 28 - chartManager._verticalScale.reduce((a, b) => a += Number(b.width.replace("px", "")), 0);
 
     }
     calcAllZoom() {
@@ -2452,7 +2461,7 @@ async function start() { // @function Start
             },
             {
                 name: "ZoomOut",
-                position: 2,
+                position: 2.2,
                 visible: true,
                 enabled: true,
                 type: ELEMENTTYPES.Button,
@@ -2461,6 +2470,27 @@ async function start() { // @function Start
                 class: "btn grpRight",
                 style: ""
             },
+            {
+                name: "xGap",
+                position: 3,
+                visible: true,
+                enable: true,
+                type: ELEMENTTYPES.Select,
+                function: SelectEvent_XGap,
+                id: "select_xGap",
+                value: chartManager.xGap,
+                label: "Abstand:",
+                labelStyle: "",
+                labelClass: "label",
+                class: "select",
+                options: [
+                    { value: 1, text: "1 Pixel" },
+                    { value: 2, text: "2 Pixel" },
+                    { value: 3, text: "3 Pixel" },
+                    { value: 4, text: "4 Pixel" },
+                    { value: 5, text: "5 Pixel" },
+                ]
+            }
 
         ]
     });
@@ -2519,17 +2549,33 @@ async function start() { // @function Start
         chartManager.zoomFreq = chartManager.allZoom;
     }
     function ButtonEvent_ZoomOut(eventArgs) {
-        var pvcOld = chartManager.partValuesCount;
-        chartManager.partValuesCount *= 1.5;
-        pvcOld = chartManager.partValuesCount - pvcOld / 1.5;
-        pvcOld / 1.5;
-
-        chartManager.zoomFreq *= 1.5;
-        if (chartManager.zoomFreq >= chartManager.allZoom) {
-            chartManager.partValuesStart = 0;
-            chartManager.partValuesCount = chartManager.json.data.length;
-            chartManager.zoomFreq = chartManager.allZoom;
+        const chartDiv = chartManager.div;
+        // Alte Position vom Zentrum des Bildschirms aus gesehen
+        const posAlt = (chartManager.partValuesStart + (chartDiv.scrollLeft * chartManager.zoomFreq / chartManager.maximumXStepDivider) + (chartManager.pageWidth * chartManager.zoomFreq / chartManager.maximumXStepDivider / 2));
+        chartManager.zoomFreq *= DEFAULT_ZOOMOUT_PERCENT / 100 + 1;
+        const posNeu = (chartManager.partValuesStart + (chartDiv.scrollLeft * chartManager.zoomFreq / chartManager.maximumXStepDivider) + (chartManager.pageWidth * chartManager.zoomFreq / chartManager.maximumXStepDivider / 2));
+        var newScrollLeft = chartDiv.scrollLeft - ((posNeu - posAlt) / chartManager.zoomFreq * chartManager.maximumXStepDivider);
+        if (newScrollLeft < 0) {
+            var negativScroll = (newScrollLeft * -1);
+            if (chartManager.partValuesStart > 0) {
+                chartManager.partValuesStart -= negativScroll * chartManager.zoomFreq / chartManager.maximumXStepDivider;
+                if (chartManager.partValuesStart < 0) {
+                    chartManager.partValuesStart = 0;
+                }
+            }
+            chartManager.createAll();
+            newScrollLeft = 0;
         }
+        chartDiv.scrollLeft = newScrollLeft;
+    }
+    function SelectEvent_XGap(eventArgs) {
+        const htmlElement = eventArgs.srcElement;
+        const uiElement = htmlElement.UIElement;
+        const uiManager = uiElement.uiManager;
+
+        chartManager.xGap = Number(uiElement.Value);
+        chartManager.createAll();
+
     }
     /// #end gelb
     /**
@@ -2636,7 +2682,7 @@ async function start() { // @function Start
         }
     }
     function fuerNumber(e) {
-        const htmlElement = e.srcElement;
+        const htmlElement = e.VsrcElement;
         const uiElement = htmlElement.UIElement;
         const uiManager = uiElement.uiManager;
         console.log(uiElement.Value);
