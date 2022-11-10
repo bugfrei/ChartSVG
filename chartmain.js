@@ -7,19 +7,22 @@ const DIV_DEFAULT_HEIGHT = "150px";
 const DIV_DEFAULT_WIDTH = "160px";
 const DEFAULT_BACKGROUND = "#FFFFFF";
 const DEFAULT_ZOOMOUT_PERCENT = 30;
+const SELECTION_LINK_TEXT_COLOR = "#0854a0";
 const SELECTION_COLOR = "#0000FF";
 const SELECTION_OPACITY = 0.5;
 const SELECTION_TITELCOLOR = "#FF0000";
 const SELECTION_TITLEOPACITY = 0.3;
-const SELECTION_ZOOMCOLOR = "#FFFFFF";
+const SELECTION_ZOOMCOLOR = "#DDDDDD";
 const SELECTION_ZOOMOPACITY = 0.8;
-const SELECTION_NOTECOLOR = "#FFFFFF";
+const SELECTION_NOTECOLOR = "#DDDDDD";
 const SELECTION_NOTEOPACITY = 0.8;
+const SELECTION_REPORTCOLOR = "#DDDDDD";
+const SELECTION_REPORTOPACITY = 0.8;
 const SELECTION_MIN_VALUES = 100; // Wenn eine Markierung sehr klein ist, wird dieser Wert als min. größe einer Markierung verwendet (ANZAHL DATENWERTE)
 const SELECTION_MIN_PIXEL = 20; // Wenn eine Markierung sehr klein ist, wird dieser Wert als min. größe einer Markierung verwendet (ANZAHL PIXEL)
 const SELECTION_DIALOG_BACKGROUNDCOLOR = "#DDDDDD";
 const SELECTION_DIALOG_WIDTH = "300"; // px
-const SELECTION_DIALOG_HEIGHT = "300"; // px
+const SELECTION_DIALOG_HEIGHT = "340"; // px
 const SELECTION_DIALOG_BORDERCOLOR = "black";
 const SELECTION_DIALOG_BORDERWIDTH = "2"; // px
 const MARK_DRAGBOX_COLOR = "#000000";
@@ -27,6 +30,7 @@ const MARK_DRAGBOX_OPACITY = 0.2;
 const MARK_DRAGBOX_WIDTH = 20;
 const MARK_SOURCE_DOC = "A";
 const MARK_SOURCE_ML = "M";
+const MARK_SOURCE_REPORT = "R";
 const MARK_OPACITY = 0.5;
 const HORIZONTAL_SCALE_HEIGHT = 60;
 //const HORIZONTAL_SCALE_BACKGROUND = "#FF0000"; // eigentlich #AAAAAA
@@ -74,6 +78,10 @@ const ELEMENTTYPES = {
     Label: "label",
     Select: "select"
 }
+const LABEL_POSITIONS = {
+    Left: "left",
+    Right: "right"
+}
 const HORIZONTAL_SCALE_CAPTION_MINDIST_X = 60;
 //const HORIZONTAL_SCAPE_CAPTION_FONTSIZE = "0.8em";
 const HORIZONTAL_SCALE_CAPTION_FONTSIZE = "12px";
@@ -110,7 +118,14 @@ class ChartManager { // @class ChartManager KLASSE
         this._marks = [];           // Auflistung der Markierungen (egal ob Arzt oder ML)
         this._verticalScale = [];   // Auflistungen der vertikalen Skalas (in der Regel nur eine für links)
         this._horizontalScale = []; // Auflistung der horizontalen Skalas (in der Regel nur eine für oben)
+        this._uimanagers = [];      // Auflistung der UIs
         this.horizontalScaleShowsTime = false;   // Zeigt die Skala die Uhrzeit (true) oder die Zeitdifferenz (false)
+        this.visibility = {
+            markDoc: true,
+            markML: true,
+            markReport: true,
+            markText: true
+        };
         this.HScaleRanges = [       // die Bereiche, die in der Horizontalen Skala dargestellt werden können @settings HScaleRanges (Seconds, LineHeight,...)
             {
                 seconds: 14400,      // 4 Stundenabstände
@@ -255,16 +270,17 @@ class ChartManager { // @class ChartManager KLASSE
                         this.click2OffsetX = x2;
                     }
 
-                    // Elementhöhe berechnen
-                    const elementHeight = DIAGRAM_HEIGHT / 5; // 3 Elemente und etwas Abstand
+                    // Elementhöhe berechnen (für eine Zeile, Zeit, Zoom, ...)
+                    const elementHeight = DIAGRAM_HEIGHT / 6; // 3 Elemente und etwas Abstand
 
                     this.selectionRect.setAttribute('x', x1);
                     this.selectionRect.setAttribute('width', x2 - x1);
                     // Titel
+                    var linkYPos = 5;
                     let anchor = createAnchor();
-                    anchor.setAttribute('href', 'javascript:alert("huhu");');
+                    anchor.setAttribute('href', 'javascript:selectionTitleClicked();');
                     anchor.setAttribute('x', x1 + 10);
-                    anchor.setAttribute('y', 10);
+                    anchor.setAttribute('y', linkYPos);
                     anchor.setAttribute('width', x2 - x1 - 20);
                     anchor.setAttribute('height', elementHeight);
                     anchor.setAttribute('dest', "title");
@@ -272,7 +288,7 @@ class ChartManager { // @class ChartManager KLASSE
 
                     let title = createRect();
                     title.setAttribute('x', x1 + 10);
-                    title.setAttribute('y', 10);
+                    title.setAttribute('y', linkYPos);
                     title.setAttribute('width', x2 - x1 - 20);
                     title.setAttribute('height', elementHeight);
                     title.setAttribute('fill', SELECTION_TITELCOLOR);
@@ -281,7 +297,7 @@ class ChartManager { // @class ChartManager KLASSE
 
                     let text = createText();
                     text.setAttribute('x', x1 + 20);
-                    text.setAttribute('y', 10 + (elementHeight * 0.85));
+                    text.setAttribute('y', linkYPos + (elementHeight * 0.85));
                     text.setAttribute('dest', "title");
                     text.setAttribute('font-size', elementHeight);
                     this.clickChart.svg.appendChild(anchor);
@@ -296,9 +312,18 @@ class ChartManager { // @class ChartManager KLASSE
                     anchor.appendChild(title);
                     anchor.appendChild(text);
                     this.selectionElements.push(anchor);
+                    text.setAttribute('x', x1 + 10 + (x2 - x1 - 20) / 2 - (text.getBoundingClientRect().width / 2));
+                    var actWidth = title.getAttribute("width");
+                    var textWidth = text.getBoundingClientRect().width;
+                    if (actWidth < textWidth * 1.2) {
+                        title.setAttribute("width", textWidth * 1.2);
+                        var textCenterPoint = Number(text.getAttribute("x")) + Number(textWidth / 2);
+                        var rectLeftPoint = textCenterPoint - (textWidth * 1.2 / 2);
+                        title.setAttribute("x", rectLeftPoint);
+                    }
 
                     // Zoom
-                    var elementYPos = 10 + (elementHeight * 1.5);
+                    var elementYPos = 5 + (elementHeight * 1.3);
                     anchor = createAnchor();
                     anchor.setAttribute('href', 'javascript:doZoom();');
                     anchor.setAttribute('x', x1 + 10);
@@ -325,16 +350,24 @@ class ChartManager { // @class ChartManager KLASSE
                     this.clickChart.svg.appendChild(anchor);
 
                     text.innerHTML = `Zoom`;  // TODO i18n
-                    text.setAttribute('fill', 'black');
+                    text.setAttribute('fill', SELECTION_LINK_TEXT_COLOR);
 
                     //this.clickChart.svg.appendChild(title);
                     anchor.appendChild(title);
                     anchor.appendChild(text);
                     this.selectionElements.push(anchor);
                     text.setAttribute('x', x1 + 10 + (x2 - x1 - 20) / 2 - (text.getBoundingClientRect().width / 2));
+                    actWidth = title.getAttribute("width");
+                    textWidth = text.getBoundingClientRect().width;
+                    if (actWidth < textWidth * 1.2) {
+                        title.setAttribute("width", textWidth * 1.2);
+                        var textCenterPoint = Number(text.getAttribute("x")) + Number(textWidth / 2);
+                        var rectLeftPoint = textCenterPoint - (textWidth * 1.2 / 2);
+                        title.setAttribute("x", rectLeftPoint);
+                    }
 
-                    // Note
-                    elementYPos = 10 + (elementHeight * 3);
+                    // Note / Ereignis
+                    elementYPos = 5 + (elementHeight * 2.6);
                     var yPos = this.mouseData.clientY;
                     var xPos = this.mouseData.clientX;
                     //var yPos = this.clickChart.svg.parentElement.offsetTop + this.clickChart.svg.parentElement.parentElement.parentElement.offsetTop + DIAGRAM_HEIGHT;
@@ -363,14 +396,68 @@ class ChartManager { // @class ChartManager KLASSE
                     text.setAttribute('font-size', elementHeight);
                     this.clickChart.svg.appendChild(anchor);
 
-                    text.innerHTML = `Markierung`; // TODO i18n
-                    text.setAttribute('fill', 'black');
+                    text.innerHTML = `Ereignis`; // TODO i18n
+                    text.setAttribute('fill', SELECTION_LINK_TEXT_COLOR);
 
                     //this.clickChart.svg.appendChild(title);
                     anchor.appendChild(title);
                     anchor.appendChild(text);
                     this.selectionElements.push(anchor);
                     text.setAttribute('x', x1 + 10 + (x2 - x1 - 20) / 2 - (text.getBoundingClientRect().width / 2));
+                    actWidth = title.getAttribute("width");
+                    textWidth = text.getBoundingClientRect().width;
+                    if (actWidth < textWidth * 1.2) {
+                        title.setAttribute("width", textWidth * 1.2);
+                        var textCenterPoint = Number(text.getAttribute("x")) + Number(textWidth / 2);
+                        var rectLeftPoint = textCenterPoint - (textWidth * 1.2 / 2);
+                        title.setAttribute("x", rectLeftPoint);
+                    }
+                    // Report
+                    elementYPos = 5 + (elementHeight * 3.9);
+                    var yPos = this.mouseData.clientY;
+                    var xPos = this.mouseData.clientX;
+                    //var yPos = this.clickChart.svg.parentElement.offsetTop + this.clickChart.svg.parentElement.parentElement.parentElement.offsetTop + DIAGRAM_HEIGHT;
+                    anchor = createAnchor();
+                    anchor.setAttribute('href', `javascript:doReport(${xPos}, ${yPos});`);
+                    anchor.setAttribute('x', x1 + 10);
+                    anchor.setAttribute('y', elementYPos);
+                    anchor.setAttribute('width', x2 - x1 - 20);
+                    anchor.setAttribute('height', elementHeight);
+                    anchor.setAttribute('dest', "title");
+                    this.clickChart.svg.appendChild(anchor);
+
+                    title = createRect();
+                    title.setAttribute('x', x1 + 10);
+                    title.setAttribute('y', elementYPos);
+                    title.setAttribute('width', x2 - x1 - 20);
+                    title.setAttribute('height', elementHeight);
+                    title.setAttribute('fill', SELECTION_REPORTCOLOR);
+                    title.setAttribute('fill-opacity', SELECTION_REPORTOPACITY);
+                    title.setAttribute('dest', "title");
+
+                    text = createText();
+                    text.setAttribute('x', x1 + 20);
+                    text.setAttribute('y', elementYPos + (elementHeight * 0.85));
+                    text.setAttribute('dest', "title");
+                    text.setAttribute('font-size', elementHeight);
+                    this.clickChart.svg.appendChild(anchor);
+
+                    text.innerHTML = `Report`; // TODO i18n
+                    text.setAttribute('fill', SELECTION_LINK_TEXT_COLOR);
+
+                    //this.clickChart.svg.appendChild(title);
+                    anchor.appendChild(title);
+                    anchor.appendChild(text);
+                    this.selectionElements.push(anchor);
+                    text.setAttribute('x', x1 + 10 + (x2 - x1 - 20) / 2 - (text.getBoundingClientRect().width / 2));
+                    actWidth = title.getAttribute("width");
+                    textWidth = text.getBoundingClientRect().width;
+                    if (actWidth < textWidth * 1.2) {
+                        title.setAttribute("width", textWidth * 1.2);
+                        var textCenterPoint = Number(text.getAttribute("x")) + Number(textWidth / 2);
+                        var rectLeftPoint = textCenterPoint - (textWidth * 1.2 / 2);
+                        title.setAttribute("x", rectLeftPoint);
+                    }
                 }
             },
             resizeSelectionRect(offsetX) {
@@ -403,7 +490,49 @@ class ChartManager { // @class ChartManager KLASSE
                 text: "Sonstiges",  // TODO i18n
                 color: "#FFFF00"
             }
-        ]
+        ];
+        this.reportTypes = [
+            {
+                text: "Normal",     // TODO i18n
+                color: "#00FF00",
+                info: "Wird im Report eingefügt."
+            },
+            {
+                text: "Gruppe 1",       // TODO i18n
+                color: "#44FF44",
+                info: "Wird im Report im Bereich 1 eingefügt."
+            },
+            {
+                text: "Gruppe 2",  // TODO i18n
+                color: "#88FF88",
+                info: "Wird im Report im Bereich 2 eingefügt."
+            },
+            {
+                text: "Gruppe 3",  // TODO i18n
+                color: "#BBFFBB",
+                info: "Wird im Report im Bereich 3 eingefügt."
+            },
+            {
+                text: "Priorität 2",  // TODO i18n
+                color: "#0000FF",
+                info: "Wird im Report eingefügt, bei < 10 Markierungen."
+            },
+            {
+                text: "Priorität 3",  // TODO i18n
+                color: "#4444FF",
+                info: "Wird im Report eingefügt, bei < 15 Markierungen."
+            },
+            {
+                text: "Priorität 4",  // TODO i18n
+                color: "#8888FF",
+                info: "Wird im Report eingefügt, bei < 20 Markierungen."
+            },
+            {
+                text: "Nur vormerken",  // TODO i18n
+                color: "#FF0000",
+                info: "Wird im Report nicht eingefgt."
+            }
+        ];
         const mainDIV = document.getElementById('chart');
         window.onkeydown = keyDown;
         var wrapperDIV = createDIV();
@@ -421,7 +550,8 @@ class ChartManager { // @class ChartManager KLASSE
     }
 
     get pageWidth() {
-        return Number(window.innerWidth) - 28 - chartManager._verticalScale.reduce((a, b) => a += Number(b.width.replace("px", "")), 0);
+        var sideMenues = chartManager._uimanagers.filter(m => m.byside).reduce((a, b) => a += b.div.clientWidth, 0);
+        return Number(window.innerWidth) - 28 - chartManager._verticalScale.reduce((a, b) => a += Number(b.width.replace("px", "")), 0) - sideMenues;
 
     }
     calcAllZoom() {
@@ -448,12 +578,12 @@ class ChartManager { // @class ChartManager KLASSE
         }
         else if (divtypeAs_DIV_TYPES == DIV_TYPES.MenuLeft) {
             div = this.addDIVTop();
-            div.setAttribute("style", `float:left;width:${width};height:${height};background-color:${backgroundColor}`);
+            div.setAttribute("style", `line-height:0.4em;padding-top:0.5em;float:left;width:${width};height:${height};background-color:${backgroundColor}`);
             overflowXToAuto = true;
         }
         else if (divtypeAs_DIV_TYPES == DIV_TYPES.MenuRight) {
             div = this.addDIVTop();
-            div.setAttribute("style", `float:right;width:${width};height:${height};background-color:${backgroundColor}`);
+            div.setAttribute("style", `line-height:0.4em;padding-top:0.5em;float:right;width:${width};height:${height};background-color:${backgroundColor}`);
         }
         else if (divtypeAs_DIV_TYPES == DIV_TYPES.SkalaLeft) {
             div = this.addDIVTop();
@@ -489,6 +619,12 @@ class ChartManager { // @class ChartManager KLASSE
     addVerticalScale({ vscale_alignment, width }) {
         var vscale = new Vertical_Scale({ vscale_alignment: vscale_alignment, width: width });
         this._verticalScale.push(vscale);
+    }
+
+    addUIManager(data) {
+        const uimanager = new UIManager(data);
+        this._uimanagers.push(uimanager);
+        return uimanager;
     }
 
     createHorizontalScales() {
@@ -528,8 +664,8 @@ class ChartManager { // @class ChartManager KLASSE
         return this._dialogNr;
     }
 
-    newDialog(x, y, x1, x2, svg) {
-        var dialog = new SelectionDialog(x, y, x1, x2, svg);
+    newDialog(x, y, x1, x2, svg, markSource) {
+        var dialog = new SelectionDialog(x, y, x1, x2, svg, markSource);
         dialog.create(x, y);
         this._dialogs.push(dialog);
         return dialog;
@@ -743,6 +879,9 @@ class ChartManager { // @class ChartManager KLASSE
     }
 }
 
+function selectionTitleClicked() {
+    // Hat bisjetzt keine Funktion, daher eine leere Funktion
+}
 function doZoom() { // @function doZoom (Zoom ausführen)
     // Calculate new Zoom
     const selectionPixel = chartManager.clickStatus.width;
@@ -771,7 +910,11 @@ function doZoom() { // @function doZoom (Zoom ausführen)
 }
 function doNote(x, y) {
     var svg = chartManager.clickStatus.clickChart.svg;
-    var newDialog = chartManager.newDialog(x, y, chartManager.clickStatus.click1OffsetX, chartManager.clickStatus.click2OffsetX, svg);
+    var newDialog = chartManager.newDialog(x, y, chartManager.clickStatus.click1OffsetX, chartManager.clickStatus.click2OffsetX, svg, MARK_SOURCE_DOC);
+}
+function doReport(x, y) {
+    var svg = chartManager.clickStatus.clickChart.svg;
+    var newDialog = chartManager.newDialog(x, y, chartManager.clickStatus.click1OffsetX, chartManager.clickStatus.click2OffsetX, svg, MARK_SOURCE_REPORT);
 }
 
 function OUT(t) {
@@ -1406,8 +1549,9 @@ const dataManager = // @object dataManager (Linienarten wie Nasaler Druck defini
 }
 
 class SelectionDialog { // @class SelectionDialog KLASSE
-    constructor(x, y, x1, x2, svg) {
+    constructor(x, y, x1, x2, svg, markSource) {
         this._nr = chartManager.nextDialogNr();
+        this.markSource = markSource;
         this.selectionStart = x1 < x2 ? x1 : x2;
         this.selectionEnd = x1 < x2 ? x2 : x1;
         this.svg = svg;
@@ -1421,7 +1565,15 @@ class SelectionDialog { // @class SelectionDialog KLASSE
         return this.select_typ.options[this.select_typ.selectedIndex].value;
     }
     get color() {
-        return this.input_color.value;
+        switch (this.markSource) {
+            case MARK_SOURCE_DOC:
+                return this.input_color.value;
+                break;
+            case MARK_SOURCE_REPORT:
+                return this.select_typ.options[this.select_typ.selectedIndex].getAttribute("color");
+                break;
+        }
+
     }
     get note() {
         return this.textarea_note.value;
@@ -1442,18 +1594,37 @@ class SelectionDialog { // @class SelectionDialog KLASSE
     }
     create(x, y) {
         const parentDIV = chartManager.div;
+        const rootDIV = parentDIV.parentElement.parentElement;
+
+        // Y-Position ermitteln (alles was links vor dem Diagramm-DIV (parentDIV) ist)
+        // leider keine Array Funktionen nutzbar :-)
+        var parentDIVOffsetX = 0;
+        for (var idx = 0; idx < rootDIV.childNodes.length; idx++) {
+            const node = rootDIV.childNodes[idx];
+            if (node.style.getPropertyValue("width") != "100%") {
+                // kein Top oder Bottom Node
+                if (node.style.getPropertyValue("float") == "left") {
+                    // linkes Element
+                    parentDIVOffsetX += node.clientWidth;
+                }
+            }
+        }
+
 
         this.div = createDIV();
         var left = x;
         var top = y;
+        var parentDIVOffsetY = rootDIV.clientHeight - parentDIV.clientHeight;
 
         // Prüfen ob es in das Fenster passt
-        if (Number(SELECTION_DIALOG_WIDTH) + left + 20 > chartManager.pageWidth) {
-            left = window.innerWidth - SELECTION_DIALOG_WIDTH - 40;
+        if (Number(SELECTION_DIALOG_WIDTH) + left + 20 - parentDIVOffsetX > parentDIV.clientWidth) {
+            left = parentDIV.clientWidth - SELECTION_DIALOG_WIDTH - 20 + parentDIVOffsetX;
         }
-        if (Number(SELECTION_DIALOG_HEIGHT) + top + 20 > chartManager.pageWidth) {
-            top = window.innerHeight - SELECTION_DIALOG_HEIGHT - 50;
+        if (Number(SELECTION_DIALOG_HEIGHT) + top + 20 - parentDIVOffsetY > parentDIV.clientHeight) {
+            top = parentDIV.clientHeight - SELECTION_DIALOG_HEIGHT + parentDIVOffsetY;
         }
+        top -= parentDIVOffsetY;
+        left -= parentDIVOffsetX;
 
         var time1 = dateFormat(chartManager.Time(this.selectionStart), "HH:MM:SS");
         var time2 = dateFormat(chartManager.Time(this.selectionEnd), "HH:MM:SS");
@@ -1504,7 +1675,14 @@ class SelectionDialog { // @class SelectionDialog KLASSE
         // Notiz
         var span = createElement("span");
         span.setAttribute("style", "margin-left:5px;");
-        span.innerHTML = "Notiz:"; // TODO i18n
+        switch (this.markSource) {
+            case MARK_SOURCE_DOC:
+                span.innerHTML = "Notiz:"; // TODO i18n
+                break;
+            case MARK_SOURCE_REPORT:
+                span.innerHTML = "Anmerkung für Report:"; // TODO i18n
+                break;
+        }
         this.div.appendChild(span);
 
         this.textarea_note = createElement("textarea");
@@ -1524,25 +1702,52 @@ class SelectionDialog { // @class SelectionDialog KLASSE
         this.select_typ.setAttribute("onchange", `typSelected(this, ${this.Nr});`);
 
         var option;
-        chartManager.markTypes.forEach(t => {
-            option = createElement("option");
-            option.setAttribute("color", t.color);
-            option.innerHTML = t.text;
-            this.select_typ.options.add(option);
-        })
+
+        switch (this.markSource) {
+            case MARK_SOURCE_DOC:
+                chartManager.markTypes.forEach(t => {
+                    option = createElement("option");
+                    option.setAttribute("color", t.color);
+                    option.innerHTML = t.text;
+                    this.select_typ.options.add(option);
+                })
+                break;
+            case MARK_SOURCE_REPORT:
+                chartManager.reportTypes.forEach(t => {
+                    option = createElement("option");
+                    option.setAttribute("color", t.color);
+                    option.setAttribute("info", t.info)
+                    option.innerHTML = t.text;
+                    this.select_typ.options.add(option);
+                })
+                break;
+        }
         this.div.appendChild(this.select_typ);
 
-        // Farbe
-        span = createElement("span");
-        span.setAttribute("style", "margin-left:5px;");
-        span.innerHTML = "Farbe:"; // TODO i18n
-        this.div.appendChild(span);
+        this.typInfo;
+        switch (this.markSource) {
+            case MARK_SOURCE_DOC:
+                // Farbe
+                span = createElement("span");
+                span.setAttribute("style", "margin-left:5px;");
+                span.innerHTML = "Farbe:"; // TODO i18n
+                this.div.appendChild(span);
 
-        this.input_color = createElement("input");
-        this.input_color.setAttribute("type", "color");
-        this.input_color.setAttribute("id", "color");
-        this.input_color.setAttribute("style", `width: ${SELECTION_DIALOG_WIDTH - 9}px;margin-left:5px;`);
-        this.div.appendChild(this.input_color);
+                this.input_color = createElement("input");
+                this.input_color.setAttribute("type", "color");
+                this.input_color.setAttribute("id", "color");
+                this.input_color.setAttribute("style", `width: ${SELECTION_DIALOG_WIDTH - 9}px;margin-left:5px;`);
+                this.div.appendChild(this.input_color);
+                break;
+            case MARK_SOURCE_REPORT:
+                // Info zum Typ
+                this.typInfo = createElement("span");
+                this.typInfo.setAttribute("style", "margin-left:5px;font-size:12px;");
+                this.typInfo.innerHTML = ""; // TODO i18n
+                this.typInfo.id = "typinfo";
+                this.div.appendChild(this.typInfo);
+                break;
+        }
 
         // ------------------------------ 
         hr = createElement("hr");
@@ -1553,7 +1758,7 @@ class SelectionDialog { // @class SelectionDialog KLASSE
         input.setAttribute("type", "button");
         input.setAttribute("id", "create");
         input.setAttribute("style", `margin-left:5px;`);
-        input.setAttribute("onclick", `createMark(${this.Nr});`);
+        input.setAttribute("onclick", `createMark(${this.Nr}, "${this.markSource}");`);
         input.value = "Erstellen"; // TODO i18n
         this.div.appendChild(input);
 
@@ -1567,7 +1772,16 @@ class SelectionDialog { // @class SelectionDialog KLASSE
         this.div.appendChild(input);
 
         const sel = this.select_typ;
-        this.input_color.value = sel.options[sel.selectedIndex].getAttribute("color");
+
+        switch (this.markSource) {
+            case MARK_SOURCE_DOC:
+                this.input_color.value = sel.options[sel.selectedIndex].getAttribute("color");
+                break;
+            case MARK_SOURCE_REPORT:
+                // typInfo
+                this.typInfo.innerHTML = sel.options[sel.selectedIndex].getAttribute("info");
+                break;
+        }
     }
     open(x, y, mark) {
         const parentDIV = chartManager.div;
@@ -1741,7 +1955,7 @@ class Mark { // @class Mark KLASSE (zeichnet die SELECTION)
         this.visible = visible;         // Entspricht dem löschen bei ML Markierungen (Eintrag wird nicht real gelöscht und nicht mehr angezeigt)
         this._rowStart = rowStart;
         this._rowEnd = rowEnd;
-        this.source = source;  // A für Arzt, M für ML
+        this.source = source;  // A für Arzt, M für ML, R für Report
         this.needUpdate = true; // Flag das gesetzt wird, wenn create die Markierung erstellen oder updaten muss
 
         this.create();
@@ -1763,7 +1977,11 @@ class Mark { // @class Mark KLASSE (zeichnet die SELECTION)
     }
 
     create() {
-        if (this.visible) {
+        var visiblity;
+        if (this.source == MARK_SOURCE_DOC) visiblity = chartManager.visibility.markDoc;
+        if (this.source == MARK_SOURCE_ML) visiblity = chartManager.visibility.markML;
+        if (this.source == MARK_SOURCE_REPORT) visiblity = chartManager.visibility.markReport;
+        if (this.visible && visiblity) {
             var x = chartManager.calcPixelFromRowNumber(this.rowStart - chartManager.partValuesStart);
             if (x >= 0) {
                 var rect = this._rect;
@@ -2049,13 +2267,20 @@ class PathGenerator { // @class PathGenerator KLASSE
 function typSelected(obj, nr) {
     const dialog = chartManager.dialogFromNr(nr);
     const sel = dialog.select_typ;
-    dialog.input_color.value = sel.options[sel.selectedIndex].getAttribute("color");
+    switch (dialog.markSource) {
+        case MARK_SOURCE_DOC:
+            dialog.input_color.value = sel.options[sel.selectedIndex].getAttribute("color");
+            break;
+        case MARK_SOURCE_REPORT:
+            dialog.typInfo.innerHTML = sel.options[sel.selectedIndex].getAttribute("info");
+            break;
+    }
 }
-function createMark(nr) {
+function createMark(nr, markSource) {
     const dialog = chartManager.dialogFromNr(nr);
     const svg = dialog.svg;
     const uuid = ""; // Für Implementierung als Component (wenn Datenbankzugriff besteht und Markierungen geladen werden)
-    const mark = new Mark(uuid, nr, dialog.note, dialog.color, dialog.type, true, svg, MARK_SOURCE_DOC, dialog.rowStart + chartManager.partValuesStart, dialog.rowEnd + chartManager.partValuesStart);
+    const mark = new Mark(uuid, nr, dialog.note, dialog.color, dialog.type, true, svg, markSource, dialog.rowStart + chartManager.partValuesStart, dialog.rowEnd + chartManager.partValuesStart);
 
     chartManager._marks.push(mark);
     chartManager.div.removeChild(dialog.div);
@@ -2212,7 +2437,7 @@ async function start() { // @function Start
 
     // @pos DEMO UI ELEMENTE
     /// #start weiss
-    const UITop2 = new UIManager({
+    const UITop2 = chartManager.addUIManager({
         div: UI_TYPES.MenuTop, height: "auto",
         elementsData: [
             {
@@ -2226,16 +2451,6 @@ async function start() { // @function Start
                 class: "btn",
                 style: "margin-bottom: 3px;"
             },
-            {
-                name: "Es geht",
-                position: 2,
-                visible: true,
-                enabled: true,
-                type: ELEMENTTYPES.Button,
-                function: function () { alert("Es geht"); },
-                label: "Es geht",
-                class: "btn"
-            },
             // {
             //     name: "Spacer",
             //     position: 3,
@@ -2244,16 +2459,6 @@ async function start() { // @function Start
             //     type: ELEMENTTYPES.Spacer,
             //     width: "10px",
             // },
-            {
-                name: "IMG1",
-                position: 4,
-                visible: true,
-                enabled: true,
-                type: ELEMENTTYPES.Button,
-                function: () => { alert("Zurück"); },
-                label: "<img src='https://icons.veryicon.com/png/System/Cristal%20Intense/Fleche%20gauche%20bleue.png' width=16 />",
-                class: "btn btnGrpLeft"
-            },
             {
                 name: "IMG2",
                 position: 5,
@@ -2300,7 +2505,7 @@ async function start() { // @function Start
                 value: 10,
                 min: 1,
                 max: 100,
-                label: "Von 1 bis 100"
+                label: "1-100"
             },
             {
                 name: "Zoom:",
@@ -2405,7 +2610,7 @@ async function start() { // @function Start
 
     // @pos FUNKTIONALE UI ELEMENTE
     /// #start rot
-    const UITop = new UIManager({
+    const UITop = chartManager.addUIManager({
         div: UI_TYPES.MenuTop, height: "auto",
         elementsData: [
             {
@@ -2494,9 +2699,89 @@ async function start() { // @function Start
 
         ]
     });
+    const UILeft = chartManager.addUIManager({
+        div: UI_TYPES.MenuLeft, height: "auto", width: "6.5em",
+        elementsData: [
+            {
+                name: "Sichtbar",
+                position: 1.0,
+                visible: true,
+                enabled: true,
+                text: "Sichtbar:",
+                type: ELEMENTTYPES.Label,
+                newLine: true,
+                class: "menuLeft"
+            },
+            {
+                name: "Sichtbar",
+                position: 1.1,
+                visible: true,
+                enabled: true,
+                text: "Markierungen/Ereignisse",
+                type: ELEMENTTYPES.Label,
+                newLine: true,
+                style: "font-size: 0.35em;"
+            },
+            {
+                name: "Sichtbar_Doc",
+                position: 1.2,
+                visible: true,
+                enabled: true,
+                type: ELEMENTTYPES.Checkbox,
+                function: Checkbox_Event_SichtbarChanges,
+                id: "Sichtbar_Doc",
+                value: chartManager.visibility.markDoc,
+                labelPos: LABEL_POSITIONS.Right,
+                label: "Arzt",
+                newLine: true,
+                labelClass: "menuLeft"
+            },
+            {
+                name: "Sichtbar_ML",
+                position: 1.4,
+                visible: true,
+                enabled: true,
+                type: ELEMENTTYPES.Checkbox,
+                function: Checkbox_Event_SichtbarChanges,
+                id: "Sichtbar_ML",
+                value: chartManager.visibility.markML,
+                labelPos: LABEL_POSITIONS.Right,
+                label: "ML",
+                newLine: true,
+                labelClass: "menuLeft"
+            },
+            {
+                name: "Sichtbar_Report",
+                position: 1.6,
+                visible: true,
+                enabled: true,
+                type: ELEMENTTYPES.Checkbox,
+                function: Checkbox_Event_SichtbarChanges,
+                id: "Sichtbar_Report",
+                value: chartManager.visibility.markReport,
+                labelPos: LABEL_POSITIONS.Right,
+                label: "Report",
+                newLine: true,
+                labelClass: "menuLeft"
+            },
+            {
+                name: "Sichtbar_Text",
+                position: 1.6,
+                visible: true,
+                enabled: true,
+                type: ELEMENTTYPES.Checkbox,
+                function: Checkbox_Event_SichtbarChanges,
+                id: "Sichtbar_Text",
+                value: chartManager.visibility.markText,
+                labelPos: LABEL_POSITIONS.Right,
+                label: "Beschriftungen",
+                newLine: true,
+                labelClass: "menuLeft"
+            },
+        ]
+    });
+    UILeft.addCSS(".menuLeft { font-size: 0.7em; line-height: 50%; }");
     /// #end rot
-    UITop.addCSS(".styled { border: 0; line-height: 1.8; padding: 0 20px; font-size: 1rem; text-align: center; color: #fff; text-shadow: 1px 1px 1px #000; border-radius: 5px; background-color: rgba(200, 200, 250, 1); background-image: linear-gradient(to top left, rgba(0, 0, 0, .2), rgba(0, 0, 0, .2) 30%, rgba(0, 0, 0, 0)); box-shadow: inset 2px 2px 3px rgba(255, 255, 255, .6), inset -2px -2px 3px rgba(0, 0, 0, .6); } .styled:hover { background-color: rgba(255, 0, 0, 1); } .styled:active { box-shadow: inset -2px -2px 3px rgba(255, 255, 255, .6), inset 2px 2px 3px rgba(0, 0, 0, .6); }");
-    //UITop.addCSS("input[type=checkbox] { visibility: hidden; } .checkbox-example { width: 45px; height: 15px; background: #555; margin: 20px 10px; position: relative; border-radius: 5px; } .checkbox-example label { display: block; width: 18px; height: 18px; border-radius: 50%; transition: all .5s ease; cursor: pointer; position: absolute; top: -2px; left: -3px; background: #ccc; } .checkbox-example input[type=checkbox]:checked + label { left: 27px; }");
 
     // Immer vorhandes DIV mit 1 Pixel breite auf der linken Seite. Bei nicht vorhanden sein eines DIVs links
     // wird aufgrund von overflow-x: auto das Diagramm nicht dargestellt! (k.a. warum)
@@ -2526,6 +2811,7 @@ async function start() { // @function Start
     loadMarks();
     UITop2.create();
     UITop.create();
+    UILeft.create();
     chartManager.createVerticalScales();
     // ****************************************************************************************************** 
 
@@ -2574,6 +2860,18 @@ async function start() { // @function Start
         const uiManager = uiElement.uiManager;
 
         chartManager.xGap = Number(uiElement.Value);
+        chartManager.createAll();
+
+    }
+    function Checkbox_Event_SichtbarChanges(eventArgs) {
+        const htmlElement = eventArgs.srcElement;
+        const uiElement = htmlElement.UIElement;
+        const uiManager = uiElement.uiManager;
+        chartManager.visibility.markDoc = uiManager.getUIElementFromName("Sichtbar_Doc").Value;
+        chartManager.visibility.markML = uiManager.getUIElementFromName("Sichtbar_ML").Value;
+        chartManager.visibility.markReport = uiManager.getUIElementFromName("Sichtbar_Report").Value;
+        chartManager.visibility.markText = uiManager.getUIElementFromName("Sichtbar_Text").Value;
+
         chartManager.createAll();
 
     }
@@ -3112,23 +3410,31 @@ class UIElement { // @class UIElement KLASSE
 }
 
 class UIManager { // @class UIManager KLASSE
-    constructor({ div, height, elementsData }) {
+    constructor({ div, height, width, elementsData }) {
+        this.byside = false;
         if (div == UI_TYPES.MenuTop) {
+            this.uiType = UI_TYPES.MenuTop;
             div = chartManager.addDIV(DIV_TYPES.MenuTop, { height: height });
             div.style.setProperty("margin-bottom", MENU_MARGIN_BOTTOM);
         }
         else if (div == UI_TYPES.MenuBottom) {
+            this.uiType = UI_TYPES.MenuBottom;
             div = chartManager.addDIV(DIV_TYPES.MenuBottom, { height: height });
         }
         else if (div == UI_TYPES.MenuLeft) {
-            div = chartManager.addDIV(DIV_TYPES.MenuLeft, { height: height });
+            this.uiType = UI_TYPES.MenuLeft;
+            this.byside = true;
+            div = chartManager.addDIV(DIV_TYPES.MenuLeft, { width: width });
         }
         else if (div == UI_TYPES.MenuRight) {
-            div = chartManager.addDIV(DIV_TYPES.MenuRight, { height: height });
+            this.uiType = UI_TYPES.MenuRight;
+            this.byside = true;
+            div = chartManager.addDIV(DIV_TYPES.MenuRight, { width: width });
         }
         this.div = div;
         this.height = height;
         this.uiElements = [];
+        this.div.setAttribute("type", "__UIELEMENT");
         elementsData.forEach(e => {
             var uielement = new UIElement(e, this);
             this.uiElements.push(uielement);
@@ -3210,15 +3516,20 @@ class UIManager { // @class UIManager KLASSE
                             labelElement = createElement("label");
                             labelElement.setAttribute("for", data.id);
                             labelElement.innerHTML = data.label;
-                            this.div.appendChild(labelElement);
                             if (data.labelClass) {
                                 labelElement.setAttribute("class", data.labelClass);
                             }
                             if (data.labelStyle) {
                                 labelElement.setAttribute("style", data.labelStyle);
                             }
+                            if (data.labelPos != LABEL_POSITIONS.Right) {
+                                this.div.appendChild(labelElement);
+                            }
                         }
                         this.div.appendChild(element);
+                        if (data.labelPos == LABEL_POSITIONS.Right) {
+                            this.div.appendChild(labelElement);
+                        }
                         break;
                     case ELEMENTTYPES.Number:
                         element = createInput("number");
@@ -3386,6 +3697,11 @@ class UIManager { // @class UIManager KLASSE
                 if (data.group) {
                     element.setAttribute("name", data.group);
                 }
+            }
+            if (data.newLine) {
+                var br = createElement("span");
+                br.setAttribute("style", "display:block;margin:0em;");
+                this.div.appendChild(br);
             }
 
 
