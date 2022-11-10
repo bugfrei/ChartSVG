@@ -3,6 +3,9 @@ const DEFAULT_ZOOM_FREQ = null;         // Zoomfaktor wird berechnet für vollan
 //const DIAGRAM_HEIGHT = 88;
 const DIAGRAM_HEIGHT = 80;
 const DEFAULT_XGAP = 1;
+const DIV_DEFAULT_HEIGHT = "150px";
+const DIV_DEFAULT_WIDTH = "160px";
+const DEFAULT_BACKGROUND = "#FFFFFF";
 const SELECTION_COLOR = "#0000FF";
 const SELECTION_OPACITY = 0.5;
 const SELECTION_TITELCOLOR = "#FF0000";
@@ -34,9 +37,32 @@ const HSCALE_ALIGNMENTS = {
     Bottom: "bottom",
     Center: "center"
 }
+const VSCALE_DEFAULT_WIDTH = "80px";
+const VSCALE_LINE_WIDTH = 1;
+const VSCALE_LINE_OPACITY = 1;
+const VSCALE_LINE_COLOR = "#000000";
+const VSCALE_ALIGNMENTS = {
+    Left: "left",
+    Right: "right"
+}
+const DIV_TYPES = {
+    MenuTop: "menutop",
+    MenuLeft: "menuleft",
+    MenuRight: "menuright",
+    MenuBottom: "menubottom",
+    SkalaLeft: "skalaleft",
+    SkalaRight: "skalaright"
+}
+const UI_TYPES = {
+    MenuTop: "menutop",
+    MenuLeft: "menuleft",
+    MenuRight: "menuright",
+    MenuBottom: "menubottom",
+}
 const HORIZONTAL_SCALE_CAPTION_MINDIST_X = 60;
 //const HORIZONTAL_SCAPE_CAPTION_FONTSIZE = "0.8em";
-const HORIZONTAL_SCAPE_CAPTION_FONTSIZE = "12px";
+const HORIZONTAL_SCALE_CAPTION_FONTSIZE = "12px";
+const MENU_MARGIN_BOTTOM = "1px";
 
 
 var chartManager;
@@ -49,7 +75,7 @@ class ChartManager {
         this._partValuesStart = 0; // Default von Anfang an
         this._partValuesCount = this.json.data.length; // Default alles anzeigen (wird beim Änderung von ZoomFreq und MaxFreq berechnet)
 
-        this.allZoom = ((this.json.data.length) / (window.innerWidth - 30)) * 2; // * 2 notwendig, da Standardansicht IMMER Min/Max verwendet und damit 2 Datenpunkte pro Value anstehen
+        this.allZoom = null; // * 2 notwendig, da Standardansicht IMMER Min/Max verwendet und damit 2 Datenpunkte pro Value anstehen
         this.dataManager = dataManager;
         this.xGap = DEFAULT_XGAP;
         if (DEFAULT_ZOOM_FREQ) {
@@ -65,6 +91,7 @@ class ChartManager {
         this._dialogNr = 0;         // Fortlaufende Nummer zur identifikation neuer Dialoge
         this._dialogs = [];         // Auflistung der Dialoge
         this._marks = [];           // Auflistung der Markierungen (egal ob Arzt oder ML)
+        this._verticalScale = [];   // Auflistungen der vertikalen Skalas (in der Regel nur eine für links)
         this._horizontalScale = []; // Auflistung der horizontalen Skalas (in der Regel nur eine für oben)
         this.horizontalScaleShowsTime = false;   // Zeigt die Skala die Uhrzeit (true) oder die Zeitdifferenz (false)
         this.HScaleRanges = [       // die Bereiche, die in der Horizontalen Skala dargestellt werden können
@@ -368,6 +395,53 @@ class ChartManager {
         this.mainDIV = mainDIV;
     }
 
+    get pageWidth() {
+        return Number(window.innerWidth) - 30 - chartManager._verticalScale.reduce((a, b) => a += Number(b.width.replace("px", "")), 0);
+
+    }
+    calcAllZoom() {
+        this.allZoom = ((this.json.data.length) / this.pageWidth) * 2;
+        if (this.zoomFreq == null) {
+            this.zoomFreq = this.allZoom;
+        }
+    }
+    addDIV(divtypeAs_DIV_TYPES, data) {
+        var { height, backgroundColor, width } = data;
+        var div;
+        if (!height) height = DIV_DEFAULT_HEIGHT;
+        if (!backgroundColor) backgroundColor = DEFAULT_BACKGROUND;
+        if (!width) width = DIV_DEFAULT_WIDTH;
+        var overflowXToAuto = false;
+
+        if (divtypeAs_DIV_TYPES == DIV_TYPES.MenuTop) {
+            div = this.addDIVTop();
+            div.setAttribute("style", `float:right;width:100%;height:${height};background-color:${backgroundColor};`);
+        }
+        else if (divtypeAs_DIV_TYPES == DIV_TYPES.MenuBottom) {
+            div = this.addDIVBottom();
+            div.setAttribute("style", `width:100%;height:${height};background-color:${backgroundColor};`);
+        }
+        else if (divtypeAs_DIV_TYPES == DIV_TYPES.MenuLeft) {
+            div = this.addDIVTop();
+            div.setAttribute("style", `float:left;width:${width};height:${height};background-color:${backgroundColor}`);
+            overflowXToAuto = true;
+        }
+        else if (divtypeAs_DIV_TYPES == DIV_TYPES.MenuRight) {
+            div = this.addDIVTop();
+            div.setAttribute("style", `float:right;width:${width};height:${height};background-color:${backgroundColor}`);
+        }
+        else if (divtypeAs_DIV_TYPES == DIV_TYPES.SkalaLeft) {
+            div = this.addDIVTop();
+            div.setAttribute("style", `float:left;width:${width};height:${height};background-color:${backgroundColor}`);
+        }
+        else if (divtypeAs_DIV_TYPES == DIV_TYPES.SkalaRight) {
+            div = this.addDIVTop();
+            div.setAttribute("style", `float:right;width:${width};height:${height};background-color:${backgroundColor}`);
+        }
+
+        return div;
+    }
+
     addDIVTop() {
         var div = createDIV();
         this.mainDIV.insertBefore(div, this.wrapperDIV);
@@ -387,9 +461,16 @@ class ChartManager {
         this._horizontalScale.push(hs);
         return hs;
     }
+    addVerticalScale({ vscale_alignment, width }) {
+        var vscale = new Vertical_Scale({ vscale_alignment: vscale_alignment, width: width });
+        this._verticalScale.push(vscale);
+    }
 
     createHorizontalScales() {
         this._horizontalScale.forEach(h => { h.create(); });
+    }
+    createVerticalScales() {
+        this._verticalScale.forEach(v => { v.create(); });
     }
 
 
@@ -546,8 +627,9 @@ class ChartManager {
         return new Date(ts + ms);
     }
 
-    addChart() {
+    addChart(titel) {
         var newDiv = createDIV();
+        newDiv.setAttribute("type", titel);
         this.div.appendChild(newDiv);
         var newSVG = createSVG();
         newSVG.onmousemove = mouseMove;
@@ -558,7 +640,7 @@ class ChartManager {
         newSVG.setAttribute('height', DIAGRAM_HEIGHT.toString());
         newDiv.appendChild(newSVG);
 
-        var newChart = new Chart(this, newDiv, newSVG, this.json);
+        var newChart = new Chart(this, newDiv, newSVG, this.json, titel);
         this.charts.push(newChart);
         return newChart;
     }
@@ -626,6 +708,9 @@ class ChartManager {
 
 
     createAll() {
+        if (this.allZoom == null) {
+            this.calcAllZoom();
+        }
         chartManager.maximumXStepDivider = null;
         this.charts.forEach(c => c.drawLines());
         this._marks.forEach(m => { m.needUpdate = true; m.create(); })
@@ -838,8 +923,9 @@ function dateFormat(date, format) {
     return res;
 }
 class Chart {
-    constructor(manager, div, svg, json) {
+    constructor(manager, div, svg, json, titel) {
         this.chartManager = manager;
+        this.titel = titel;
         this.chartLines = [];
         this.zeroLine = false;
         this.div = div;
@@ -1283,7 +1369,8 @@ const dataManager =
         return {
             ...information,
             "freq": this.freqFromSignalName(sigName),
-            "data": data
+            "data": data,
+            "sigName": sigName
         };
     },
     freqFromSignalName(sigName) {
@@ -1336,10 +1423,10 @@ class SelectionDialog {
         var top = y;
 
         // Prüfen ob es in das Fenster passt
-        if (Number(SELECTION_DIALOG_WIDTH) + left + 20 > window.innerWidth) {
+        if (Number(SELECTION_DIALOG_WIDTH) + left + 20 > chartManager.pageWidth) {
             left = window.innerWidth - SELECTION_DIALOG_WIDTH - 40;
         }
-        if (Number(SELECTION_DIALOG_HEIGHT) + top + 20 > window.innerHeight) {
+        if (Number(SELECTION_DIALOG_HEIGHT) + top + 20 > chartManager.pageWidth) {
             top = window.innerHeight - SELECTION_DIALOG_HEIGHT - 50;
         }
 
@@ -1466,10 +1553,10 @@ class SelectionDialog {
         var top = y;
 
         // Prüfen ob es in das Fenster passt
-        if (Number(SELECTION_DIALOG_WIDTH) + left + 20 > window.innerWidth) {
+        if (Number(SELECTION_DIALOG_WIDTH) + left + 20 > chartManager.pageWidth) {
             left = window.innerWidth - SELECTION_DIALOG_WIDTH - 40;
         }
-        if (Number(SELECTION_DIALOG_HEIGHT) + top + 20 > window.innerHeight) {
+        if (Number(SELECTION_DIALOG_HEIGHT) + top + 20 > chartManager.pageWidth) {
             top = window.innerHeight - SELECTION_DIALOG_HEIGHT - 50;
         }
 
@@ -2071,62 +2158,40 @@ async function start() {
 
     // ------------------------------  END Fuckup Point ------------------------------ 
 
-    var chart1 = chartManager.addChart();
-    // all.json
-    /*
-    chartManager.addHorizontalScale({ before: chart1, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Bottom });
-    chart1.addLine("000000", "Breathing");
-    var chart2 = chartManager.addChart();
-    chart2.addLine("FF0000", "MovementX");
-    chart2.addLine("00FF00", "MovementY");
-    chart2.addLine("0000FF", "MovementZ");
-    var chart3 = chartManager.addChart();
-    chart3.addLine("0000FF", "OxSaturation");
-    var chart4 = chartManager.addChart();
-    if (false) {
-        chart4.addLine("FF0000", "Breathing");
-        chartManager.createAll();
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        chart4.clearLines();
-    }
-    chart4.addLine("FF0000", "Pulse");
-
-    chartManager.addHorizontalScale({ before: chart3, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Center });
-    chartManager.addHorizontalScale({ after: chart4, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Top });
-    */
-
-    // kurven.json
+    var chart1 = chartManager.addChart("Nasal");
     chartManager.addHorizontalScale({ before: chart1, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Bottom });
     chart1.addLine("#000000", "Nasaler Druck");
 
-    var chart2 = chartManager.addChart();
+    var chart2 = chartManager.addChart("Thorax");
     chart2.addLine("#000000", "Thorax");
 
-    var chart3 = chartManager.addChart();
+    var chart3 = chartManager.addChart("PSchnarchen");
     chart3.addLine("#000000", "PSchnarchen")
 
-    var chart4 = chartManager.addChart();
-    chart4.addLine("#FF0000", "SpO2");
-    chart4.addLine("#00FF00", "SpO2 B-B");
+    var chart4 = chartManager.addChart("SpO2");
+    chart4.addLine("#880000", "SpO2");
+    chart4.addLine("#008800", "SpO2 B-B");
+    chart4.addLine("#000088", "SpO2");
+    chart4.addLine("#888800", "SpO2 B-B");
+    chart4.addLine("#008888", "SpO2");
+    chart4.addLine("#888888", "SpO2 B-B");
 
-    var chart5 = chartManager.addChart();
+    var chart5 = chartManager.addChart("Pulsrate");
     chart5.addLine("#000000", "Pulsrate");
 
-    var chart6 = chartManager.addChart();
+    var chart6 = chartManager.addChart("Plethysmogramm");
     chart6.addLine("#000000", "Plethysmogramm");
 
-    var chart7 = chartManager.addChart();
+    var chart7 = chartManager.addChart("Aktivität");
     chart7.addLine("#000000", "Aktivitaet");
 
     chartManager.addHorizontalScale({ after: chart7, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Top });
-    chartManager.createAll();
-    loadMarks();
+
 
     // DEMO UI ELEMENTE
     /// #start weiss
-    const top2UIDIV = chartManager.addDIVTop();
     const UITop2 = new UIManager({
-        div: top2UIDIV, height: "100px",
+        div: UI_TYPES.MenuTop, height: "auto",
         elementsData: [
             {
                 name: "ButtonLinks",
@@ -2315,13 +2380,11 @@ async function start() {
     /// #end weiss
     UITop2.addCSS("div,button,select,label,option,p{color:#0854a0;font-size:18px;font-weight:700;font-family:'Roboto',sans-serif}.label{box-sizing:border-box;background-color:#fff;color:#0854a0;font-size:18px;min-width:103px;min-height:38px;margin:0 5px 0 0;text-align:center;padding-top:8px}.select{background-color:#fff;border:1px solid #0854a0;border-radius:5px;color:#0854a0;padding:0;font-size:18px;cursor:pointer;min-width:103px;min-height:38px;margin:0 5px 0 0}.select:focus{outline:1px solid #0854a0}.btn{background-color:#fff;border:1px solid #0854a0;border-radius:5px;color:#0854a0;padding:0;font-size:18px;cursor:pointer;min-width:103px;min-height:38px;margin:0 5px 0 0}.grpLeft{border-radius:5px 0 0 5px;margin:0}.grpInner{border-left:none;border-radius:0 0 0 0;margin:0}.grpRight{border-left:none;border-radius:0 5px 5px 0}.btn:hover{background-color:#ebf5fe;transition:.7s}.btn:active{background-color:#0854a0;transition:0;color:#fff}.btn:disabled{color:#9cbbda;border-color:#9cbbda}");
     //UITop.addCSS("input[type=checkbox] { visibility: hidden; } .checkbox-example { width: 45px; height: 15px; background: #555; margin: 20px 10px; position: relative; border-radius: 5px; } .checkbox-example label { display: block; width: 18px; height: 18px; border-radius: 50%; transition: all .5s ease; cursor: pointer; position: absolute; top: -2px; left: -3px; background: #ccc; } .checkbox-example input[type=checkbox]:checked + label { left: 27px; }");
-    UITop2.create();
 
     // FUNKTIONALE UI ELEMENTE
     /// #start rot
-    const topUIDIV = chartManager.addDIVTop();
     const UITop = new UIManager({
-        div: topUIDIV, height: "100px",
+        div: UI_TYPES.MenuTop, height: "auto",
         elementsData: [
             {
                 name: "ScrollPageLeft",
@@ -2391,7 +2454,33 @@ async function start() {
     /// #end rot
     UITop.addCSS(".styled { border: 0; line-height: 1.8; padding: 0 20px; font-size: 1rem; text-align: center; color: #fff; text-shadow: 1px 1px 1px #000; border-radius: 5px; background-color: rgba(200, 200, 250, 1); background-image: linear-gradient(to top left, rgba(0, 0, 0, .2), rgba(0, 0, 0, .2) 30%, rgba(0, 0, 0, 0)); box-shadow: inset 2px 2px 3px rgba(255, 255, 255, .6), inset -2px -2px 3px rgba(0, 0, 0, .6); } .styled:hover { background-color: rgba(255, 0, 0, 1); } .styled:active { box-shadow: inset -2px -2px 3px rgba(255, 255, 255, .6), inset 2px 2px 3px rgba(0, 0, 0, .6); }");
     //UITop.addCSS("input[type=checkbox] { visibility: hidden; } .checkbox-example { width: 45px; height: 15px; background: #555; margin: 20px 10px; position: relative; border-radius: 5px; } .checkbox-example label { display: block; width: 18px; height: 18px; border-radius: 50%; transition: all .5s ease; cursor: pointer; position: absolute; top: -2px; left: -3px; background: #ccc; } .checkbox-example input[type=checkbox]:checked + label { left: 27px; }");
+
+    chartManager.addDIV(DIV_TYPES.MenuLeft, { width: "1px" });
+    // **************************************************************************************************** 
+    // **                                       Zusätzliche DIVs                                         ** 
+    // **************************************************************************************************** 
+    // ** In folgender Reihenfolge!                                                                      ** 
+    // **------------------------------------------------------------------------------------------------** 
+    // ** Top (Menu oder Skalas)                                                                         ** 
+    // ** Bottom (Menu oder Skalas)                                                                      ** 
+    // ** Left (Menu oder Skalas)                                                                        ** 
+    // ** Right (Menu oder Skalas)                                                                       ** 
+    // **************************************************************************************************** 
+    // Tops
+    // Bottoms
+    // Lefts
+    chartManager.addVerticalScale({ vscale_alignment: VSCALE_ALIGNMENTS.Left, width: VSCALE_DEFAULT_WIDTH });
+    chartManager.addVerticalScale({ vscale_alignment: VSCALE_ALIGNMENTS.Right, width: VSCALE_DEFAULT_WIDTH });
+    // Rights
+
+    // ********************************************* CREATE ALL ********************************************* 
+    chartManager.createAll();
+
+    loadMarks();
+    UITop2.create();
     UITop.create();
+    chartManager.createVerticalScales();
+    // ****************************************************************************************************** 
 
     // BUTTONS EVENTS
     /// #start gelb
@@ -2557,6 +2646,171 @@ function loadMarks() {
 
 }
 
+class Vertical_Scale {
+    constructor({ vscale_alignment, width }) {
+        if (vscale_alignment == VSCALE_ALIGNMENTS.Left) {
+            this.div = chartManager.addDIV(DIV_TYPES.MenuLeft, { width: width });
+            this.alignment = vscale_alignment;
+            this.width = width;
+        }
+        else if (vscale_alignment == VSCALE_ALIGNMENTS.Right) {
+            this.div = chartManager.addDIV(DIV_TYPES.MenuRight, { width: width });
+            this.alignment = vscale_alignment;
+            this.width = width;
+        }
+        this.svg = null;
+    }
+    create() {
+        while (this.div.childNodes.length > 0) this.div.removeChild(svg.firstChild);
+        // V-Skalas werden nicht nach den definierten Charts erstellt
+        // Sondern nach den vorhandenen Nodes in scrollbaren DIV
+        // Diese könnten H-Skalas sein (nur mit weißer Fläche füllen)
+        // Oder ein Diagramm (Skala mit Beschriftung und Linien zeichnen)
+        chartManager.div.childNodes.forEach(c => {
+            var type = c.getAttribute("type");
+            if (type == "hscale") {
+                this.drawScale(c.childNodes[0].clientHeight);
+            }
+            else {
+                this.drawChartScale(chartManager.charts.find(ch => ch.titel == type));
+            }
+
+
+        })
+    }
+
+    drawChartScale(chart) {
+        var div = createDIV();
+        var svg = createSVG();
+        var height = chart.svg.getAttribute("height");
+        svg.setAttribute("style", `height: ${height};background-color: ${DEFAULT_BACKGROUND};width:${this.width};`);
+        div.appendChild(svg);
+        this.div.appendChild(div);
+        var svgWidth = svg.clientWidth;
+
+        var xPos;
+        var xDistance;
+        var xLines;
+        var xLineWidth;
+        if (this.alignment == VSCALE_ALIGNMENTS.Left) {
+            xPos = 15;
+            xDistance = 15;
+            xLines = svgWidth - 15;
+            xLineWidth = 15;
+        }
+        else if (this.alignment == VSCALE_ALIGNMENTS.Right) {
+            xPos = svgWidth;
+            xDistance = -15;
+            xLines = 15;
+            xLineWidth = -15;
+        }
+
+        this.drawVerticalText(chart.chartLines[0].data.sigName, xPos, svg, chart.chartLines[0].color);
+
+        if (chart.chartLines.length > 1) {
+            var x = xPos + xDistance;
+            for (var idx = 1; idx < chart.chartLines.length; idx++) {
+                var line = chart.chartLines[idx];
+                var name = line.data.sigName;
+                this.drawVerticalText(name, x, svg, line.color, 0.7);
+                x += xDistance;
+                if (this.alignment == VSCALE_ALIGNMENTS.Left) {
+                    if (x > (svgWidth - 20)) {
+                        break;
+                    }
+                }
+                else if (this.alignment == VSCALE_ALIGNMENTS.Right) {
+                    if (x < 35) {
+                        break;
+                    }
+                }
+            };
+        }
+
+        // Linien
+        var rect = createRect();
+        rect.setAttribute('x', xLines);
+        rect.setAttribute('y', 0);
+        rect.setAttribute('width', VSCALE_LINE_WIDTH);
+        rect.setAttribute('height', height);
+        rect.setAttribute('opacity', VSCALE_LINE_OPACITY);
+        rect.setAttribute("fill", VSCALE_LINE_COLOR);
+        svg.appendChild(rect);
+        rect = createRect();
+        rect.setAttribute('x', xLineWidth < 0 ? xLines + xLineWidth : xLines);
+        rect.setAttribute('y', 0);
+        rect.setAttribute('width', Math.abs(xLineWidth));
+        rect.setAttribute('height', VSCALE_LINE_WIDTH);
+        rect.setAttribute('opacity', VSCALE_LINE_OPACITY);
+        rect.setAttribute("fill", VSCALE_LINE_COLOR);
+        svg.appendChild(rect);
+        rect = createRect();
+        rect.setAttribute('x', xLineWidth < 0 ? xLines + xLineWidth : xLines);
+        rect.setAttribute('y', height - 1);
+        rect.setAttribute('width', Math.abs(xLineWidth));
+        rect.setAttribute('height', VSCALE_LINE_WIDTH);
+        rect.setAttribute('opacity', VSCALE_LINE_OPACITY);
+        rect.setAttribute("fill", VSCALE_LINE_COLOR);
+        svg.appendChild(rect);
+
+        // ZeroLine
+        const zeroLineTotalPoints = chart.chartLines[0].data.valueMax - chart.chartLines[0].data.valueMin; // alle -> 100%
+        const zeroLineYPercent = 1 / zeroLineTotalPoints * chart.chartLines[0].data.valueMax; // Max-Wert in x%
+        const zeroLineY = (height * zeroLineYPercent) - 1;  // Diagrammhöhe x% = Y Position der Null-Linie
+
+        rect = createRect();
+        rect.setAttribute('x', xLineWidth < 0 ? xLines + xLineWidth : xLines);
+        rect.setAttribute('y', zeroLineY);
+        rect.setAttribute('width', Math.abs(xLineWidth) * 0.8);
+        rect.setAttribute('height', VSCALE_LINE_WIDTH);
+        rect.setAttribute('opacity', VSCALE_LINE_OPACITY);
+        rect.setAttribute("fill", VSCALE_LINE_COLOR);
+        svg.appendChild(rect);
+
+    }
+    drawScale(height) {
+        var div = createDIV();
+        var svg = createSVG();
+        svg.setAttribute("style", `height: ${height};background-color: ${DEFAULT_BACKGROUND};width:${this.width};`);
+        div.appendChild(svg);
+        this.div.appendChild(div);
+    }
+    drawVerticalText(text, x, svg, color, fontsizeFactor) {
+        if (!fontsizeFactor) fontsizeFactor = 1;
+        var txt = createText();
+        var height = svg.clientHeight;
+        var y = 0;
+        var size = 16 * fontsizeFactor;
+
+        txt.setAttribute('x', x);
+        txt.setAttribute('y', y);
+        txt.setAttribute('font-size', `${size}px`);
+        txt.setAttribute('fill', color);
+        txt.setAttribute('style', "font-weight:400");
+
+        txt.innerHTML = text;
+        svg.appendChild(txt)
+        var textwidth = txt.getBoundingClientRect().width;
+        var textheight = txt.getBoundingClientRect().width;
+        txt.setAttribute('transform', `rotate(-90,${textwidth / 2},${textheight / 2})`);
+        textwidth = txt.getBoundingClientRect().width;
+        textheight = txt.getBoundingClientRect().height;
+        txt.setAttribute('y', x);
+        txt.setAttribute("x", (height * -0.5) + textheight / 2)
+        while (txt.getBoundingClientRect().height > (height - 4) * fontsizeFactor) {
+            size--;
+            txt.setAttribute('font-size', `${size}px`);
+        }
+        // Evtl. Größenanpassungen (font-size) korrigieren in der Pos. damit es zentriert wird
+        var diff = (textheight - txt.getBoundingClientRect().height) / 2; // Halber Unterschied zur vorherigen Höhe
+        var old = txt.getAttribute("x");  // Alte Position
+        txt.setAttribute("x", Number(old) + Number(diff));
+
+
+        //            txt.setAttribute('x', x - (txt.getBoundingClientRect().width / 2));
+    }
+
+}
 class HorizontalScale {
     constructor({ before, after, height, align }) {
         this.before = before;
@@ -2589,6 +2843,7 @@ class HorizontalScale {
             this.svg.setAttribute('height', this.height);
 
             this.div = createDIV();
+            this.div.setAttribute("type", "hscale");
             this.div.appendChild(this.svg);
 
             this.svg.appendChild(this.rect);
@@ -2721,7 +2976,7 @@ class HorizontalScale {
             txt.setAttribute('x', x);
             txt.setAttribute('y', textYPos);
             txt.setAttribute('dest', "title");
-            txt.setAttribute('font-size', HORIZONTAL_SCAPE_CAPTION_FONTSIZE);
+            txt.setAttribute('font-size', HORIZONTAL_SCALE_CAPTION_FONTSIZE);
 
             txt.innerHTML = text;
             txt.setAttribute('fill', HSCALE_TEXT_COLOR);
@@ -2819,6 +3074,19 @@ class UIElement {
 
 class UIManager {
     constructor({ div, height, elementsData }) {
+        if (div == UI_TYPES.MenuTop) {
+            div = chartManager.addDIV(DIV_TYPES.MenuTop, { height: height });
+            div.style.setProperty("margin-bottom", MENU_MARGIN_BOTTOM);
+        }
+        else if (div == UI_TYPES.MenuBottom) {
+            div = chartManager.addDIV(DIV_TYPES.MenuBottom, { height: height });
+        }
+        else if (div == UI_TYPES.MenuLeft) {
+            div = chartManager.addDIV(DIV_TYPES.MenuLeft, { height: height });
+        }
+        else if (div == UI_TYPES.MenuRight) {
+            div = chartManager.addDIV(DIV_TYPES.MenuRight, { height: height });
+        }
         this.div = div;
         this.height = height;
         this.uiElements = [];
@@ -3096,4 +3364,3 @@ class UIManager {
 start();
 //startNode();
 //var x = dataManager.dataInformationFromSignalName("Breathing");
-;
