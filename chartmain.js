@@ -59,15 +59,31 @@ const UI_TYPES = {
     MenuRight: "menuright",
     MenuBottom: "menubottom",
 }
+const ELEMENTTYPES = {
+    Button: "button",
+    ImageButton: "imagebutton",
+    SVGButton: "svgbutton",
+    Spacer: "spacer",
+    Checkbox: "checkbox",
+    Number: "number",
+    Radio: "radio",
+    Range: "range",
+    Text: "text",
+    Time: "time",
+    Label: "label",
+    Select: "select"
+}
 const HORIZONTAL_SCALE_CAPTION_MINDIST_X = 60;
 //const HORIZONTAL_SCAPE_CAPTION_FONTSIZE = "0.8em";
 const HORIZONTAL_SCALE_CAPTION_FONTSIZE = "12px";
 const MENU_MARGIN_BOTTOM = "1px";
 
+var x;// @warn warnung
+
 
 var chartManager;
 
-class ChartManager {
+class ChartManager { // @class ChartManager KLASSE
     // Default-Values
 
     constructor(json, dataManager) {
@@ -94,7 +110,7 @@ class ChartManager {
         this._verticalScale = [];   // Auflistungen der vertikalen Skalas (in der Regel nur eine für links)
         this._horizontalScale = []; // Auflistung der horizontalen Skalas (in der Regel nur eine für oben)
         this.horizontalScaleShowsTime = false;   // Zeigt die Skala die Uhrzeit (true) oder die Zeitdifferenz (false)
-        this.HScaleRanges = [       // die Bereiche, die in der Horizontalen Skala dargestellt werden können
+        this.HScaleRanges = [       // die Bereiche, die in der Horizontalen Skala dargestellt werden können @settings HScaleRanges (Seconds, LineHeight,...)
             {
                 seconds: 3600,      // Stundenabstände
                 minPixelDistForText: HORIZONTAL_SCALE_CAPTION_MINDIST_X,         // Minimum Abstand zwischen 2 Beschriftungen in Pixel
@@ -357,7 +373,7 @@ class ChartManager {
                 }
             }
         }
-        this.markTypes = [
+        this.markTypes = [ // @settings MarkTypes (Normal, Apnoe, ...)
             {
                 text: "Normal",     // TODO i18n
                 color: "#00FF00"
@@ -718,7 +734,7 @@ class ChartManager {
     }
 }
 
-function doZoom() {
+function doZoom() { // @function doZoom (Zoom ausführen)
     // Calculate new Zoom
     const selectionPixel = chartManager.clickStatus.width;
     const zoomXValuesFor1Pixel = chartManager.zoomFreq;
@@ -831,7 +847,7 @@ function mouseClick(e) {
     }
 }
 
-function createDIV() {
+function createDIV() { // @function createDIV (und alle anderen Create-Funktionen)
     //return document.createElementNS('http://www.w3.org/2000/div', 'div');
     return document.createElement('div');
 }
@@ -922,7 +938,7 @@ function dateFormat(date, format) {
 
     return res;
 }
-class Chart {
+class Chart { // @class Chart KLASSE
     constructor(manager, div, svg, json, titel) {
         this.chartManager = manager;
         this.titel = titel;
@@ -1132,7 +1148,7 @@ function startNode() {
 
 }
 
-const dataManager =
+const dataManager = // @object dataManager (Linienarten wie Nasaler Druck definieren, dataFunction, valueMin/Max...) 
 {
     json: null,
     dataInformation: [
@@ -1380,7 +1396,7 @@ const dataManager =
     }
 }
 
-class SelectionDialog {
+class SelectionDialog { // @class SelectionDialog KLASSE
     constructor(x, y, x1, x2, svg) {
         this._nr = chartManager.nextDialogNr();
         this.selectionStart = x1 < x2 ? x1 : x2;
@@ -1704,7 +1720,7 @@ class SelectionDialog {
     }
 }
 
-class Mark {
+class Mark { // @class Mark KLASSE (zeichnet die SELECTION)
     constructor(uuid, nr, note, color, type, valid, svg, source, rowStart, rowEnd, visible = true) {
         this.nr = nr;
         this.uuid = uuid;
@@ -1808,7 +1824,7 @@ class Mark {
     }
 }
 
-class PathGenerator {
+class PathGenerator { // @class PathGenerator KLASSE
     constructor({ startPointX, startPointY, SVG, min, max }) {
         this.startPointX = 0;
         this.startPointY = 0;
@@ -2105,8 +2121,6 @@ function deleteMark(nr) {
 
         chartManager.div.removeChild(dialog.div);
         chartManager._dialogs.splice(chartManager._dialogs.indexOf(dialog), 1);
-
-
     }
 }
 function resizeMark(nr) {
@@ -2144,9 +2158,7 @@ function resizeMark(nr) {
     // chartManager.div.removeChild(dialog.div);
 }
 
-
-
-async function start() {
+async function start() { // @function Start
     //let load = await (fetch("./all.json"));
     let load = await (fetch("./kurven.json"));
     let json = await load.json();
@@ -2158,6 +2170,7 @@ async function start() {
 
     // ------------------------------  END Fuckup Point ------------------------------ 
 
+    // @pos Charts und Horzintale Skalas erstellen/hinzufügen
     var chart1 = chartManager.addChart("Nasal");
     chartManager.addHorizontalScale({ before: chart1, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Bottom });
     chart1.addLine("#000000", "Nasaler Druck");
@@ -2188,7 +2201,7 @@ async function start() {
     chartManager.addHorizontalScale({ after: chart7, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Top });
 
 
-    // DEMO UI ELEMENTE
+    // @pos DEMO UI ELEMENTE
     /// #start weiss
     const UITop2 = new UIManager({
         div: UI_TYPES.MenuTop, height: "auto",
@@ -2381,7 +2394,7 @@ async function start() {
     UITop2.addCSS("div,button,select,label,option,p{color:#0854a0;font-size:18px;font-weight:700;font-family:'Roboto',sans-serif}.label{box-sizing:border-box;background-color:#fff;color:#0854a0;font-size:18px;min-width:103px;min-height:38px;margin:0 5px 0 0;text-align:center;padding-top:8px}.select{background-color:#fff;border:1px solid #0854a0;border-radius:5px;color:#0854a0;padding:0;font-size:18px;cursor:pointer;min-width:103px;min-height:38px;margin:0 5px 0 0}.select:focus{outline:1px solid #0854a0}.btn{background-color:#fff;border:1px solid #0854a0;border-radius:5px;color:#0854a0;padding:0;font-size:18px;cursor:pointer;min-width:103px;min-height:38px;margin:0 5px 0 0}.grpLeft{border-radius:5px 0 0 5px;margin:0}.grpInner{border-left:none;border-radius:0 0 0 0;margin:0}.grpRight{border-left:none;border-radius:0 5px 5px 0}.btn:hover{background-color:#ebf5fe;transition:.7s}.btn:active{background-color:#0854a0;transition:0;color:#fff}.btn:disabled{color:#9cbbda;border-color:#9cbbda}");
     //UITop.addCSS("input[type=checkbox] { visibility: hidden; } .checkbox-example { width: 45px; height: 15px; background: #555; margin: 20px 10px; position: relative; border-radius: 5px; } .checkbox-example label { display: block; width: 18px; height: 18px; border-radius: 50%; transition: all .5s ease; cursor: pointer; position: absolute; top: -2px; left: -3px; background: #ccc; } .checkbox-example input[type=checkbox]:checked + label { left: 27px; }");
 
-    // FUNKTIONALE UI ELEMENTE
+    // @pos FUNKTIONALE UI ELEMENTE
     /// #start rot
     const UITop = new UIManager({
         div: UI_TYPES.MenuTop, height: "auto",
@@ -2455,6 +2468,8 @@ async function start() {
     UITop.addCSS(".styled { border: 0; line-height: 1.8; padding: 0 20px; font-size: 1rem; text-align: center; color: #fff; text-shadow: 1px 1px 1px #000; border-radius: 5px; background-color: rgba(200, 200, 250, 1); background-image: linear-gradient(to top left, rgba(0, 0, 0, .2), rgba(0, 0, 0, .2) 30%, rgba(0, 0, 0, 0)); box-shadow: inset 2px 2px 3px rgba(255, 255, 255, .6), inset -2px -2px 3px rgba(0, 0, 0, .6); } .styled:hover { background-color: rgba(255, 0, 0, 1); } .styled:active { box-shadow: inset -2px -2px 3px rgba(255, 255, 255, .6), inset 2px 2px 3px rgba(0, 0, 0, .6); }");
     //UITop.addCSS("input[type=checkbox] { visibility: hidden; } .checkbox-example { width: 45px; height: 15px; background: #555; margin: 20px 10px; position: relative; border-radius: 5px; } .checkbox-example label { display: block; width: 18px; height: 18px; border-radius: 50%; transition: all .5s ease; cursor: pointer; position: absolute; top: -2px; left: -3px; background: #ccc; } .checkbox-example input[type=checkbox]:checked + label { left: 27px; }");
 
+    // Immer vorhandes DIV mit 1 Pixel breite auf der linken Seite. Bei nicht vorhanden sein eines DIVs links
+    // wird aufgrund von overflow-x: auto das Diagramm nicht dargestellt! (k.a. warum)
     chartManager.addDIV(DIV_TYPES.MenuLeft, { width: "1px" });
     // **************************************************************************************************** 
     // **                                       Zusätzliche DIVs                                         ** 
@@ -2466,6 +2481,7 @@ async function start() {
     // ** Left (Menu oder Skalas)                                                                        ** 
     // ** Right (Menu oder Skalas)                                                                       ** 
     // **************************************************************************************************** 
+    // @pos Zusätzliche DIVs, u.a. VerticaleScale, VScale, VSkala
     // Tops
     // Bottoms
     // Lefts
@@ -2474,6 +2490,7 @@ async function start() {
     // Rights
 
     // ********************************************* CREATE ALL ********************************************* 
+    // @pos CreateAll Aufruf
     chartManager.createAll();
 
     loadMarks();
@@ -2591,15 +2608,8 @@ async function start() {
             }
         }
 
-
-
         console.log(`[INFO] Scrolling ${sizePercent}%`);
     }
-    function dtest() {
-
-    }
-
-
 
     /// #end gelb
     function testButton(e) {
@@ -2643,10 +2653,9 @@ function loadMarks() {
 
     const mark2 = new Mark(uuid, 10001, "90%", "#aaaaaa", "Apnoe", true, svg, MARK_SOURCE_ML, 50000, 70000, true);
     chartManager._marks.push(mark2);
-
 }
 
-class Vertical_Scale {
+class Vertical_Scale { // @class Vertical_Scale KLASSE
     constructor({ vscale_alignment, width }) {
         if (vscale_alignment == VSCALE_ALIGNMENTS.Left) {
             this.div = chartManager.addDIV(DIV_TYPES.MenuLeft, { width: width });
@@ -2674,9 +2683,7 @@ class Vertical_Scale {
             else {
                 this.drawChartScale(chartManager.charts.find(ch => ch.titel == type));
             }
-
-
-        })
+        });
     }
 
     drawChartScale(chart) {
@@ -2811,7 +2818,7 @@ class Vertical_Scale {
     }
 
 }
-class HorizontalScale {
+class HorizontalScale { // @class HorizontaleScale KLASSE
     constructor({ before, after, height, align }) {
         this.before = before;
         this.after = after;
@@ -2987,22 +2994,8 @@ class HorizontalScale {
     }
 }
 
-const ELEMENTTYPES = {
-    Button: "button",
-    ImageButton: "imagebutton",
-    SVGButton: "svgbutton",
-    Spacer: "spacer",
-    Checkbox: "checkbox",
-    Number: "number",
-    Radio: "radio",
-    Range: "range",
-    Text: "text",
-    Time: "time",
-    Label: "label",
-    Select: "select"
-}
 
-class UIElement {
+class UIElement { // @class UIElement KLASSE
     constructor(data, uiManager) {
         this.data = data;
         this.uiManager = uiManager;
@@ -3072,7 +3065,7 @@ class UIElement {
     }
 }
 
-class UIManager {
+class UIManager { // @class UIManager KLASSE
     constructor({ div, height, elementsData }) {
         if (div == UI_TYPES.MenuTop) {
             div = chartManager.addDIV(DIV_TYPES.MenuTop, { height: height });
