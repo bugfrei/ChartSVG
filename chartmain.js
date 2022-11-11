@@ -32,6 +32,7 @@ const MARK_SOURCE_DOC = "A";
 const MARK_SOURCE_ML = "M";
 const MARK_SOURCE_REPORT = "R";
 const MARK_OPACITY = 0.5;
+const MARK_TEXT_COLOR = "#0854a0";
 const HORIZONTAL_SCALE_HEIGHT = 60;
 //const HORIZONTAL_SCALE_BACKGROUND = "#FF0000"; // eigentlich #AAAAAA
 const HORIZONTAL_SCALE_BACKGROUND = "#dddddd"; // eigentlich #333333
@@ -783,7 +784,7 @@ class ChartManager { // @class ChartManager KLASSE
         // TimeStampStart ist kein Unix Timestamp sondern das 1000 fache (also nanosekunden seit...) Daher / 1000
         var ts = this.json.header.TimeStampStart / 1000;
         // Millisekunden werden benötigt
-        var ms = this.SecondsFromRow(row) * 1000;
+        var ms = this.SecondsFromRow(row) * 1000 * (chartManager.maximumXStepDivider / 2);
 
         return new Date(ts + ms);
     }
@@ -918,7 +919,8 @@ function doReport(x, y) {
 }
 
 function OUT(t) {
-    document.getElementById("OUT").innerHTML = t;
+    console.log(t);
+    //document.getElementById("OUT").innerHTML = t;
 }
 
 function mouseMove(e) {
@@ -1989,10 +1991,12 @@ class Mark { // @class Mark KLASSE (zeichnet die SELECTION)
                     rect = createRect();
                     this._rect = rect;
                 }
+                var xGapMultiplyer = chartManager.maximumXStepDivider / 2;
+                x *= xGapMultiplyer;
                 rect.setAttribute('x', x);
                 rect.setAttribute('y', 0);
                 var width = this.rowEnd - this.rowStart;
-                rect.setAttribute('width', chartManager.calcPixelFromRowNumber(width));
+                rect.setAttribute('width', chartManager.calcPixelFromRowNumber(width) * xGapMultiplyer);
                 rect.setAttribute('height', DIAGRAM_HEIGHT);
                 rect.setAttribute("fill", this.color);
                 rect.setAttribute("fill-opacity", MARK_OPACITY);
@@ -2000,50 +2004,51 @@ class Mark { // @class Mark KLASSE (zeichnet die SELECTION)
                 rect.setAttribute("nr", this.nr);
                 rect.setAttribute("uuid", this.uuid);
                 this.svg.appendChild(rect);
+                if (chartManager.visibility.markText) {
+                    var time1 = dateFormat(chartManager.TimeFromRow(this.rowStart), "HH:MM:SS");
+                    var time2 = dateFormat(chartManager.TimeFromRow(this.rowEnd), "HH:MM:SS");
+                    var timeRange = `${time1} - ${time2}`; // TODO i18n
 
-                var time1 = dateFormat(chartManager.TimeFromRow(this.rowStart), "HH:MM:SS");
-                var time2 = dateFormat(chartManager.TimeFromRow(this.rowEnd), "HH:MM:SS");
-                var timeRange = `${time1} - ${time2}`; // TODO i18n
+                    var sec = chartManager.SecondsFromRow(this.rowEnd - this.rowStart) * (chartManager.maximumXStepDivider / 2);
+                    var secDate = new Date(2022, 1, 1, 0, 0, sec);
+                    var timeDiff = dateFormat(secDate, "HH:MM:SS");             // TODO i18n
 
-                var sec = chartManager.SecondsFromRow(this.rowEnd - this.rowStart);
-                var secDate = new Date(2022, 1, 1, 0, 0, sec);
-                var timeDiff = dateFormat(secDate, "HH:MM:SS");             // TODO i18n
+                    if (!this.text1) {
+                        this.text1 = createText();
+                    }
+                    this.text1.setAttribute('x', x + 20);
+                    this.text1.setAttribute('y', 25);
+                    this.text1.innerHTML = timeRange; // TODO i18n Zeitformat!
+                    this.text1.setAttribute('fill', MARK_TEXT_COLOR);
+                    this.text1.setAttribute("dest", "mark");
+                    this.text1.setAttribute("nr", this.nr);
+                    this.text1.setAttribute("uuid", this.uuid);
+                    this.svg.appendChild(this.text1);
 
-                if (!this.text1) {
-                    this.text1 = createText();
+                    if (!this.text2) {
+                        this.text2 = createText();
+                    }
+                    this.text2.setAttribute('x', x + 20);
+                    this.text2.setAttribute('y', 45);
+                    this.text2.innerHTML = "Dauer: " + timeDiff + ")"; // TODO i18n Zeitformat!
+                    this.text2.setAttribute('fill', MARK_TEXT_COLOR);
+                    this.text2.setAttribute("dest", "mark");
+                    this.text2.setAttribute("nr", this.nr);
+                    this.text2.setAttribute("uuid", this.uuid);
+                    this.svg.appendChild(this.text2);
+
+                    if (!this.text3) {
+                        this.text3 = createText();
+                    }
+                    this.text3.setAttribute('x', x + 20);
+                    this.text3.setAttribute('y', 65);
+                    this.text3.innerHTML = this.type; // TODO i18n Zeitformat!
+                    this.text3.setAttribute('fill', MARK_TEXT_COLOR);
+                    this.text3.setAttribute("dest", "mark");
+                    this.text3.setAttribute("nr", this.nr);
+                    this.text3.setAttribute("uuid", this.uuid);
+                    this.svg.appendChild(this.text3);
                 }
-                this.text1.setAttribute('x', x + 20);
-                this.text1.setAttribute('y', 25);
-                this.text1.innerHTML = timeRange; // TODO i18n Zeitformat!
-                this.text1.setAttribute('fill', 'black');
-                this.text1.setAttribute("dest", "mark");
-                this.text1.setAttribute("nr", this.nr);
-                this.text1.setAttribute("uuid", this.uuid);
-                this.svg.appendChild(this.text1);
-
-                if (!this.text2) {
-                    this.text2 = createText();
-                }
-                this.text2.setAttribute('x', x + 20);
-                this.text2.setAttribute('y', 45);
-                this.text2.innerHTML = "Dauer: " + timeDiff + ")"; // TODO i18n Zeitformat!
-                this.text2.setAttribute('fill', 'black');
-                this.text2.setAttribute("dest", "mark");
-                this.text2.setAttribute("nr", this.nr);
-                this.text2.setAttribute("uuid", this.uuid);
-                this.svg.appendChild(this.text2);
-
-                if (!this.text3) {
-                    this.text3 = createText();
-                }
-                this.text3.setAttribute('x', x + 20);
-                this.text3.setAttribute('y', 65);
-                this.text3.innerHTML = this.type; // TODO i18n Zeitformat!
-                this.text3.setAttribute('fill', 'black');
-                this.text3.setAttribute("dest", "mark");
-                this.text3.setAttribute("nr", this.nr);
-                this.text3.setAttribute("uuid", this.uuid);
-                this.svg.appendChild(this.text3);
 
                 chartManager.clickStatus.removeSelectionRect();
             }
@@ -2605,7 +2610,7 @@ async function start() { // @function Start
         ]
     });
     /// #end weiss
-    UITop2.addCSS("div,button,select,label,option,p{color:#0854a0;font-size:18px;font-weight:700;font-family:'Roboto',sans-serif}.label{box-sizing:border-box;background-color:#fff;color:#0854a0;font-size:18px;min-width:103px;min-height:38px;margin:0 5px 0 0;text-align:center;padding-top:8px}.select{background-color:#fff;border:1px solid #0854a0;border-radius:5px;color:#0854a0;padding:0;font-size:18px;cursor:pointer;min-width:103px;min-height:38px;margin:0 5px 0 0}.select:focus{outline:1px solid #0854a0}.btn{background-color:#fff;border:1px solid #0854a0;border-radius:5px;color:#0854a0;padding:0;font-size:18px;cursor:pointer;min-width:103px;min-height:38px;margin:0 5px 0 0}.grpLeft{border-radius:5px 0 0 5px;margin:0}.grpInner{border-left:none;border-radius:0 0 0 0;margin:0}.grpRight{border-left:none;border-radius:0 5px 5px 0}.btn:hover{background-color:#ebf5fe;transition:.7s}.btn:active{background-color:#0854a0;transition:0;color:#fff}.btn:disabled{color:#9cbbda;border-color:#9cbbda}");
+    UITop2.addCSS('div,button,select,label,option,p{color:#0854a0;font-size:18px;font-weight:700;font-family:"Roboto",sans-serif}.label{box-sizing:border-box;background-color:#fff;color:#0854a0;font-size:18px;min-width:103px;min-height:38px;margin:0 5px 0 0;text-align:center;padding-top:8px}.select{background-color:#fff;border:1px solid #0854a0;border-radius:5px;color:#0854a0;padding:0;font-size:18px;cursor:pointer;min-width:103px;min-height:38px;margin:0 5px 0 0}.select:focus{outline:1px solid #0854a0}.btn{background-color:#fff;border:1px solid #0854a0;border-radius:5px;color:#0854a0;padding:0;font-size:18px;cursor:pointer;min-width:103px;min-height:38px;margin:0 5px 0 0}.grpLeft{border-radius:5px 0 0 5px;margin:0}.grpInner{border-left:none;border-radius:0 0 0 0;margin:0}.grpRight{border-left:none;border-radius:0 5px 5px 0}.btn:hover{background-color:#ebf5fe;transition:.7s}.btn:active{background-color:#0854a0;transition:0;color:#fff}.btn:disabled{color:#9cbbda;border-color:#9cbbda}');
     //UITop.addCSS("input[type=checkbox] { visibility: hidden; } .checkbox-example { width: 45px; height: 15px; background: #555; margin: 20px 10px; position: relative; border-radius: 5px; } .checkbox-example label { display: block; width: 18px; height: 18px; border-radius: 50%; transition: all .5s ease; cursor: pointer; position: absolute; top: -2px; left: -3px; background: #ccc; } .checkbox-example input[type=checkbox]:checked + label { left: 27px; }");
 
     // @pos FUNKTIONALE UI ELEMENTE
@@ -2809,7 +2814,7 @@ async function start() { // @function Start
     chartManager.createAll();
 
     loadMarks();
-    UITop2.create();
+    //UITop2.create();
     UITop.create();
     UILeft.create();
     chartManager.createVerticalScales();
