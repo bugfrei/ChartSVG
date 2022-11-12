@@ -83,6 +83,13 @@ const LABEL_POSITIONS = {
     Left: "left",
     Right: "right"
 }
+const SCROLL_POSITION = {           // Es wird so gescrollt das
+    LeftLeft: "leftleft",           // Scrollbalken links, gewünschte Position links ist
+    LeftCenter: "leftCenter",       // Scrollbalken links, gewünschte Position zentriert ist
+    Center: "center",               // Scrollbalken zentriert, gewünschten Position zentriert ist
+    RightRight: "rightright",            // Scrollbalken rechts, gewünschte Position rechts ist
+    RightCenter: "rightcenter"      // Scrollbalken rechts, gewünschte Poisition zentriert ist
+}
 const HORIZONTAL_SCALE_CAPTION_MINDIST_X = 60;
 //const HORIZONTAL_SCAPE_CAPTION_FONTSIZE = "0.8em";
 const HORIZONTAL_SCALE_CAPTION_FONTSIZE = "12px";
@@ -550,6 +557,87 @@ class ChartManager { // @class ChartManager KLASSE
         this.mainDIV = mainDIV;
     }
 
+    get positionCenter() {
+        // Alte Position vom Zentrum des Bildschirms aus gesehen
+        return (this.partValuesStart + (this.div.scrollLeft * this.zoomFreq / this.maximumXStepDivider) + (this.pageWidth * this.zoomFreq / this.maximumXStepDivider / 2));
+    }
+    set positionCenter({ values, timeAbsolut, timeRelativ, zoomValues, zoomSeconds, scrollPosition }) {
+        var destValues = null;
+        var zoomFreq = this.zoomFreq;
+        if (timeAbsolut) {
+            // Ziel ist die Absolute Uhrzeit
+            var msDest = Number(this.combineDates(timeAbsolut));
+            var msStart = this.json.header.TimeStampStart / 1000;
+            var sDiff = (msDest - msStart) / 1000;
+            destValues = sDiff * this.maxFreq;
+        }
+        else if (timeRelativ) {
+            // Ziel ist die relative Zeit
+            var destHours = timeRelativ.getHours();
+            var destMinutes = timeRelativ.getMinutes();
+            var destSeconds = timeRelativ.getSeconds();
+            var secondsTotal = (destHours * 3600) + (destMinutes * 60) + destSeconds;
+
+            destValues = secondsTotal * this.maxFreq;
+        }
+        else if (values) {
+            // Ziel ist eine Values angabe
+            destValues = values;
+        }
+
+        if (!destValues) {
+            throw new Error("[ERROR] positionCenter ohne gültiges Ziel!");
+        }
+
+        // Zoom 
+        if (zoomValues) {
+            zoomFreq = zoomValues;
+        }
+        else if (zoomSeconds) {
+            var pixelCount = this.pageWidth;
+            zoomFreq = zoomSeconds * this.maxFreq / pixelCount * this.maximumXStepDivider;
+        }
+        if (zoomFreq >= 1) {
+            zoomFreq = Math.ceil(zoomFreq);
+        }
+
+        this.calcPartValuesCount(zoomFreq);
+        var pvStart = null;
+        var scrollLeft = null;
+        switch (scrollPosition) {
+            case SCROLL_POSITION.LeftLeft:
+                pvStart = destValues - (this.maxFreq);
+                scrollLeft = 0;
+                break;
+            case SCROLL_POSITION.LeftCenter:
+                pvStart = destValues - (this.maxFreq) - (this.pageWidth * zoomFreq / 2 / this.maximumXStepDivider);
+                scrollLeft = 0;
+                break;
+            case SCROLL_POSITION.Center:
+                pvStart = destValues - (this.partValuesCount / 2);
+                scrollLeft = ((this.partValuesCount / zoomFreq * this.maximumXStepDivider) / 2) - (this.pageWidth / 2);
+                break;
+            case SCROLL_POSITION.RightRight:
+                pvStart = destValues - (this.partValuesCount) + (this.maxFreq);
+                scrollLeft = ((this.partValuesCount / zoomFreq * this.maximumXStepDivider));
+                break;
+            case SCROLL_POSITION.RightCenter:
+                pvStart = destValues - (this.partValuesCount) + (this.pageWidth * zoomFreq / 2 / this.maximumXStepDivider);
+                scrollLeft = ((this.partValuesCount / zoomFreq * this.maximumXStepDivider));
+                break;
+        }
+
+        console.log(`${this.partValuesCount}`);
+
+        this.partValuesStart = pvStart;
+        this.zoomFreq = zoomFreq;
+        this.div.scrollLeft = scrollLeft;
+
+
+
+
+    }
+
     get pageWidth() {
         var sideMenues = chartManager._uimanagers.filter(m => m.byside).reduce((a, b) => a += b.div.clientWidth, 0);
         return Number(window.innerWidth) - 28 - chartManager._verticalScale.reduce((a, b) => a += Number(b.width.replace("px", "")), 0) - sideMenues;
@@ -878,7 +966,26 @@ class ChartManager { // @class ChartManager KLASSE
         this._marks.forEach(m => { m.needUpdate = true; m.create(); })
         this.createHorizontalScales();
     }
+    combineDates(dateDest) {
+        var dateStart = new Date(this.json.header.TimeStampStart / 1000);
+
+        var startDay = dateStart.getDate();
+        var startMonth = dateStart.getMonth();
+        var startYear = dateStart.getFullYear();
+
+        var destHours = dateDest.getHours();
+        var destMinutes = dateDest.getMinutes();
+        var destSeconds = dateDest.getSeconds();
+
+        var fullDate = new Date(startYear, startMonth, startDay, destHours, destMinutes, destSeconds);
+        if (fullDate < dateStart) {
+            fullDate = new Date(startYear, startMonth, startDay + 1, destHours, destMinutes, destSeconds);
+        }
+        return fullDate;
+    }
 }
+
+
 
 function selectionTitleClicked() {
     // Hat bisjetzt keine Funktion, daher eine leere Funktion
@@ -2700,7 +2807,18 @@ async function start() { // @function Start
                     { value: 4, text: "4 Pixel" },
                     { value: 5, text: "5 Pixel" },
                 ]
-            }
+            },
+            {
+                name: "TEST",
+                position: 4,
+                visible: true,
+                enabled: true,
+                type: ELEMENTTYPES.Button,
+                function: ButtonEvent_TEST,
+                label: "TEST",
+                class: "btn",
+                style: ""
+            },
 
         ]
     });
@@ -2859,6 +2977,11 @@ async function start() { // @function Start
         }
         chartDiv.scrollLeft = newScrollLeft;
     }
+    function ButtonEvent_TEST(eventArgs) {
+        //chartManager.positionCenter = { timeAbsolut: new Date(0, 0, 0, 4, 10, 0), zoomSeconds: 60 };
+        chartManager.positionCenter = { timeAbsolut: new Date(0, 0, 0, 0, 0, 0), zoomSeconds: 60, scrollPosition: SCROLL_POSITION.Center };
+    }
+
     function SelectEvent_XGap(eventArgs) {
         const htmlElement = eventArgs.srcElement;
         const uiElement = htmlElement.UIElement;
@@ -2902,59 +3025,33 @@ async function start() { // @function Start
             chartDiv.scrollLeft = newScrollLeft;
         }
         else {
-            if (newScrollLeft < 0) {
-                var negativPartStart = 0;
-                var newPartStart = partStart - partCount + (chartDiv.scrollLeft * chartManager.zoomFreq / chartManager.maximumXStepDivider);
+            if (newScrollLeft + clientWidth > scrollWidth) {
+                var partStartOverflow = 0;
+                var scrollDiff = chartDiv.scrollWidth - chartDiv.scrollLeft - chartDiv.clientWidth;
+                const dataLength = chartManager.json.data.length;
+
+                var newPartStart = partStart + partCount - (scrollDiff * chartManager.zoomFreq / chartManager.maximumXStepDivider);
                 if (Math.abs(sizePercent) != 100) {
                     var percentRest = 100 - Math.abs(sizePercent);
                     var pixelRest = clientWidth / 100 * percentRest;
                     var valuesRest = pixelRest * chartManager.zoomFreq / chartManager.maximumXStepDivider;
-                    newPartStart += valuesRest;
+                    newPartStart -= valuesRest;
                 }
-                if (newPartStart < 0) {
-                    negativPartStart = newPartStart * -1;
-                    newPartStart = 0;
+                if (newPartStart + partCount > dataLength) {
+                    partStartOverflow = newPartStart + partCount - dataLength;
+                    newPartStart = dataLength - partCount;
                 }
                 if (chartManager.partValuesStart != newPartStart) {
                     chartManager.partValuesStart = newPartStart;
                     chartManager.createAll();
                 }
-                newScrollLeft = chartManager.div.scrollWidth - chartManager.div.clientWidth;
-                if (negativPartStart > 0) {
-                    newScrollLeft -= (negativPartStart / chartManager.zoomFreq * chartManager.maximumXStepDivider);
-                }
-                chartDiv.scrollLeft = newScrollLeft;
-                //debugger;
-            }
-            else {
-                if (newScrollLeft + clientWidth > scrollWidth) {
-                    var partStartOverflow = 0;
-                    var scrollDiff = chartDiv.scrollWidth - chartDiv.scrollLeft - chartDiv.clientWidth;
-                    const dataLength = chartManager.json.data.length;
-
-                    var newPartStart = partStart + partCount - (scrollDiff * chartManager.zoomFreq / chartManager.maximumXStepDivider);
-                    if (Math.abs(sizePercent) != 100) {
-                        var percentRest = 100 - Math.abs(sizePercent);
-                        var pixelRest = clientWidth / 100 * percentRest;
-                        var valuesRest = pixelRest * chartManager.zoomFreq / chartManager.maximumXStepDivider;
-                        newPartStart -= valuesRest;
-                    }
-                    if (newPartStart + partCount > dataLength) {
-                        partStartOverflow = newPartStart + partCount - dataLength;
-                        newPartStart = dataLength - partCount;
-                    }
-                    if (chartManager.partValuesStart != newPartStart) {
-                        chartManager.partValuesStart = newPartStart;
-                        chartManager.createAll();
-                    }
-                    newScrollLeft = 0;
-                    if (partStartOverflow > 0) {
-                        newScrollLeft = (partStartOverflow / chartManager.zoomFreq * chartManager.maximumXStepDivider);
-                    }
-                    chartDiv.scrollLeft = newScrollLeft;
+                newScrollLeft = 0;
+                if (partStartOverflow > 0) {
+                    newScrollLeft = (partStartOverflow / chartManager.zoomFreq * chartManager.maximumXStepDivider);
                 }
                 chartDiv.scrollLeft = newScrollLeft;
             }
+            chartDiv.scrollLeft = newScrollLeft;
         }
 
         console.log(`[INFO] Scrolling ${sizePercent}%`);
