@@ -51,6 +51,7 @@ const VSCALE_ALIGNMENTS = {
     Left: "left",
     Right: "right"
 }
+const SHIFTED_SCROLL_FACTOR = 8; // 8 faches Scrollen bei Shift+Rechtsklick+Move
 const DIV_TYPES = {
     MenuTop: "menutop",
     MenuLeft: "menuleft",
@@ -89,6 +90,11 @@ const SCROLL_POSITION = {           // Es wird so gescrollt das
     Center: "center",               // Scrollbalken zentriert, gewünschten Position zentriert ist
     RightRight: "rightright",            // Scrollbalken rechts, gewünschte Position rechts ist
     RightCenter: "rightcenter"      // Scrollbalken rechts, gewünschte Poisition zentriert ist
+}
+const MOUSEBUTTONS = {
+    Left: 0,
+    Middle: 1,
+    Right: 2
 }
 const HORIZONTAL_SCALE_CAPTION_MINDIST_X = 60;
 //const HORIZONTAL_SCAPE_CAPTION_FONTSIZE = "0.8em";
@@ -555,11 +561,108 @@ class ChartManager { // @class ChartManager KLASSE
         wrapperDIV.appendChild(areawrapperDIV);
         this.div = areawrapperDIV;
         this.mainDIV = mainDIV;
+
+        document.oncontextmenu = function () { return false; }
+        document.onmousedown = this.mousedown_doc;
+        document.onmousemove = this.mousemove_doc;
+        document.onmouseup = this.mouseup_doc;
+        document.onclick = this.mouseclick_doc;
+    }
+    mouseclick_doc(e) {
+        console.log(`CLICK:${e}`);
+
+    }
+    mouseup_doc(e) {
+        if (e.button == MOUSEBUTTONS.Right) {
+            chartManager.rightDownPosition = null;
+            if (chartManager.rightDownUpTime) {
+                var diffms = (Number(new Date()) - Number(chartManager.rightDownUpTime));
+                var difX = e.clientX - chartManager.rightDownX;
+                if (diffms < 1000 && Math.abs(difX) < 10) {
+                    // Doppelrechtklick
+                    var insideDiagram = false;
+                    var element = e.toElement;
+                    while (true) {
+                        if (element.tagName == "BODY") {
+                            break;
+                        }
+                        if (element.className == "chartAreaWrapper") {
+                            insideDiagram = true;
+                            break;
+                        }
+                        element = element.parentElement;
+                    }
+                    if (insideDiagram) {
+                        var pos = e.offsetX;
+                        var left = chartManager.div.scrollLeft;
+                        var dif = pos - left;
+                        if (chartManager.getUIElementFromName("Zoom_Modus_1").Value) {
+                        }
+                        else if (chartManager.getUIElementFromName("Zoom_Modus_2").Value) {
+                            dif -= chartManager.pageWidth / 2;
+                        }
+                        else if (chartManager.getUIElementFromName("Zoom_Modus_3").Value) {
+                            dif -= chartManager.pageWidth;
+                        }
+                        chartManager.div.scrollLeft += dif;
+                    }
+                    chartManager.rightDownUpTime = null;
+                    chartManager.rightDownX = null;
+                }
+                else {
+                    chartManager.rightDownUpTime = new Date();
+                    chartManager.rightDownX = e.clientX;
+                }
+            }
+            else {
+                chartManager.rightDownUpTime = new Date();
+                chartManager.rightDownX = e.clientX;
+            }
+        }
+    }
+    mousedown_doc(e) {
+        if (e.button == MOUSEBUTTONS.Right) {
+            chartManager.rightDownPosition = {
+                x: e.clientX,
+                y: e.clientY,
+                scrollLeft: chartManager.div.scrollLeft,
+            };
+        }
+    }
+    mousemove_doc(e) {
+        if (chartManager.rightDownPosition && e.buttons == MOUSEBUTTONS.Right) {
+            var multi = 1;
+            if (e.shiftKey) {
+                multi = SHIFTED_SCROLL_FACTOR;
+            }
+            var newScrollLeft = chartManager.rightDownPosition.scrollLeft - ((e.clientX - chartManager.rightDownPosition.x) * multi);
+            chartManager.div.scrollLeft = newScrollLeft;
+        }
     }
 
+    getUIElementFromName(name) {
+        var uielement = null;
+        for (var mIdx = 0; mIdx < this._uimanagers.length; mIdx++) {
+            var element = this._uimanagers[mIdx].getUIElementFromName(name);
+            if (element) {
+                uielement = element;
+                break;
+            }
+        }
+        return uielement;
+    }
+
+    get positionLeft() {
+        // Alte Position vom Zentrum des Bildschirms aus gesehen
+        return (this.partValuesStart + (this.div.scrollLeft * this.zoomFreq / this.maximumXStepDivider));
+    }
     get positionCenter() {
         // Alte Position vom Zentrum des Bildschirms aus gesehen
         return (this.partValuesStart + (this.div.scrollLeft * this.zoomFreq / this.maximumXStepDivider) + (this.pageWidth * this.zoomFreq / this.maximumXStepDivider / 2));
+    }
+    get positionRight() {
+        // Alte Position vom Zentrum des Bildschirms aus gesehen
+        return (this.partValuesStart + (this.div.scrollLeft * this.zoomFreq / this.maximumXStepDivider) + (this.pageWidth * this.zoomFreq / this.maximumXStepDivider));
     }
     set positionCenter({ values, timeAbsolut, timeRelativ, zoomValues, zoomSeconds, scrollPosition }) {
         var destValues = null;
@@ -604,38 +707,55 @@ class ChartManager { // @class ChartManager KLASSE
         this.calcPartValuesCount(zoomFreq);
         var pvStart = null;
         var scrollLeft = null;
-        switch (scrollPosition) {
-            case SCROLL_POSITION.LeftLeft:
-                pvStart = destValues - (this.maxFreq);
-                scrollLeft = 0;
-                break;
-            case SCROLL_POSITION.LeftCenter:
-                pvStart = destValues - (this.maxFreq) - (this.pageWidth * zoomFreq / 2 / this.maximumXStepDivider);
-                scrollLeft = 0;
-                break;
-            case SCROLL_POSITION.Center:
-                pvStart = destValues - (this.partValuesCount / 2);
-                scrollLeft = ((this.partValuesCount / zoomFreq * this.maximumXStepDivider) / 2) - (this.pageWidth / 2);
-                break;
-            case SCROLL_POSITION.RightRight:
-                pvStart = destValues - (this.partValuesCount) + (this.maxFreq);
-                scrollLeft = ((this.partValuesCount / zoomFreq * this.maximumXStepDivider));
-                break;
-            case SCROLL_POSITION.RightCenter:
-                pvStart = destValues - (this.partValuesCount) + (this.pageWidth * zoomFreq / 2 / this.maximumXStepDivider);
-                scrollLeft = ((this.partValuesCount / zoomFreq * this.maximumXStepDivider));
-                break;
+        if (this.partValuesCount == this.json.data.length) {
+            // Es wird immer alles geladen, d.h. partValuesStart ist immer 0
+            pvStart = 0;
+            switch (scrollPosition) {
+                case SCROLL_POSITION.LeftLeft:
+                    scrollLeft = (destValues / zoomFreq * chartManager.maximumXStepDivider);
+                    break;
+                case SCROLL_POSITION.LeftCenter:
+                    scrollLeft = (destValues / zoomFreq * chartManager.maximumXStepDivider);
+                    break;
+                case SCROLL_POSITION.Center:
+                    scrollLeft = (destValues / zoomFreq * chartManager.maximumXStepDivider) - (this.pageWidth / 2);
+                    break;
+                case SCROLL_POSITION.RightRight:
+                    scrollLeft = (destValues / zoomFreq * chartManager.maximumXStepDivider) - (this.pageWidth);
+                    break;
+                case SCROLL_POSITION.RightCenter:
+                    scrollLeft = (destValues / zoomFreq * chartManager.maximumXStepDivider) - (this.pageWidth);
+                    break;
+            }
         }
-
-        console.log(`${this.partValuesCount}`);
+        else {
+            switch (scrollPosition) {
+                case SCROLL_POSITION.LeftLeft:
+                    pvStart = destValues - (this.maxFreq);
+                    scrollLeft = 0;
+                    break;
+                case SCROLL_POSITION.LeftCenter:
+                    pvStart = destValues - (this.maxFreq) - (this.pageWidth * zoomFreq / 2 / this.maximumXStepDivider);
+                    scrollLeft = 0;
+                    break;
+                case SCROLL_POSITION.Center:
+                    pvStart = destValues - (this.partValuesCount / 2);
+                    scrollLeft = ((this.partValuesCount / zoomFreq * this.maximumXStepDivider) / 2) - (this.pageWidth / 2);
+                    break;
+                case SCROLL_POSITION.RightRight:
+                    pvStart = destValues - (this.partValuesCount) + (this.maxFreq);
+                    scrollLeft = ((this.partValuesCount / zoomFreq * this.maximumXStepDivider));
+                    break;
+                case SCROLL_POSITION.RightCenter:
+                    pvStart = destValues - (this.partValuesCount) + (this.pageWidth * zoomFreq / 2 / this.maximumXStepDivider);
+                    scrollLeft = ((this.partValuesCount / zoomFreq * this.maximumXStepDivider));
+                    break;
+            }
+        }
 
         this.partValuesStart = pvStart;
         this.zoomFreq = zoomFreq;
         this.div.scrollLeft = scrollLeft;
-
-
-
-
     }
 
     get pageWidth() {
@@ -725,10 +845,10 @@ class ChartManager { // @class ChartManager KLASSE
 
 
     calcRowNumberFromSelectionPosition(pixelPosition) {
-        return pixelPosition * this.zoomFreq;
+        return pixelPosition * this.zoomFreq / this.maximumXStepDivider;
     }
     calcPixelFromRowNumber(rowNumber) {
-        return rowNumber / this.zoomFreq;
+        return rowNumber / this.zoomFreq * (this.maximumXStepDivider);
     }
     calcPixelsForSeconds(seconds) {
         const valuesPerSeconds = this.maxFreq;
@@ -764,7 +884,7 @@ class ChartManager { // @class ChartManager KLASSE
         var dialog;
         dialog = chartManager._dialogs.find(d => d.mark == mark);
         if (!dialog) {
-            dialog = new SelectionDialog(x, y, x1, x2, svg);
+            dialog = new SelectionDialog(x, y, x1, x2, svg, mark.source);
             dialog.open(x, y, mark);
             this._dialogs.push(dialog);
         }
@@ -829,28 +949,25 @@ class ChartManager { // @class ChartManager KLASSE
         if (freqZoomFactor <= 1.9) {
             // Geringer Zoom, d.h. alles anzeigen
             this.partValuesCount = this.json.data.length; // 32 * (3600 * 8) / 16 = 57600 Pixel 
+            this.partValuesStart = 0;
         }
         else if (freqZoomFactor <= 4) {
             // Zoom Faktor zu hoch für alles, auf zwei Stunde reduzieren
             this.partValuesCount = this.maxFreq * 3600 * 2;
-            console.log(`[INFO] PartValuesCount = ${this.partValuesCount / 60} min.`);
 
         }
         else if (freqZoomFactor <= 16) {
             // Zoom Faktor zu hoch für alles, auf eine Stunde reduzieren
             this.partValuesCount = this.maxFreq * 3600; // 32 * 3600 / 2 = 57600 Pixel
-            console.log(`[INFO] PartValuesCount = ${this.partValuesCount / 60} min.`);
 
         }
         else if (freqZoomFactor <= 128) {
             // Zoom Faktor sehr hoch, nur noch 10 Minuten anzeigen
             this.partValuesCount = this.maxFreq * 600; // 32 * 60 / 0.25 = 76800 Pixel Width für SVG
-            console.log(`[INFO] PartValuesCount = ${this.partValuesCount / 60} min.`);
         }
         else {
             // Zoom Faktor noch höher, nur noch 1 Minuten anzeigen
             this.partValuesCount = this.maxFreq * 60; // 32 * 60 / 0.125 = 15360 Pixel Width für SVG
-            console.log(`[INFO] PartValuesCount = ${this.partValuesCount / 60} min.`);
         }
     }
 
@@ -866,13 +983,13 @@ class ChartManager { // @class ChartManager KLASSE
         return new Date(ts + ms);
     }
     SecondsFromRow(row) {
-        return row / this.maxFreq / chartManager.maximumXStepDivider;
+        return row / this.maxFreq;
     }
     TimeFromRow(row) {
         // TimeStampStart ist kein Unix Timestamp sondern das 1000 fache (also nanosekunden seit...) Daher / 1000
         var ts = this.json.header.TimeStampStart / 1000;
         // Millisekunden werden benötigt
-        var ms = this.SecondsFromRow(row) * 1000 * (chartManager.maximumXStepDivider / 2);
+        var ms = this.SecondsFromRow(row) * 1000;
 
         return new Date(ts + ms);
     }
@@ -904,7 +1021,6 @@ class ChartManager { // @class ChartManager KLASSE
         // Resize
         if (chartManager._resizeData.state == 1) {
             var newX = e.offsetX;
-            console.log(newX + " (" + (newX - chartManager._resizeData.offsetX) + ")");
             var diffX = newX - chartManager._resizeData.offsetX;
 
             var oldXPixel = chartManager.calcPixelFromRowNumber(chartManager._resizeData.oldStart);
@@ -961,10 +1077,33 @@ class ChartManager { // @class ChartManager KLASSE
         if (this.allZoom == null) {
             this.calcAllZoom();
         }
+        this.setActualZoom();
         chartManager.maximumXStepDivider = null;
         this.charts.forEach(c => c.drawLines());
         this._marks.forEach(m => { m.needUpdate = true; m.create(); })
         this.createHorizontalScales();
+    }
+    setActualZoom() {
+        const selectOptionActualZoom = document.getElementById("ActualZoom");
+        if (selectOptionActualZoom) {
+            var asString = "";
+            if (chartManager.zoomFreq >= Math.floor(chartManager.allZoom)) {
+                asString = "Alles"
+            }
+            else {
+                var totalSeconds = chartManager.pageWidth * chartManager.zoomFreq / chartManager.maxFreq / chartManager.maximumXStepDivider;
+                var hours = Math.floor(totalSeconds / 3600);
+                totalSeconds -= hours * 3600;
+                var minutes = Math.floor(totalSeconds / 60);
+                totalSeconds -= minutes * 60;
+                var seconds = Math.round(totalSeconds);
+
+                const asDate = new Date(0, 0, 0, hours, minutes, seconds);
+                asString = dateFormat(asDate, "HH:MM:SS");
+            }
+
+            selectOptionActualZoom.innerHTML = asString;
+        }
     }
     combineDates(dateDest) {
         var dateStart = new Date(this.json.header.TimeStampStart / 1000);
@@ -1060,6 +1199,10 @@ function mouseUp(e) {
     }
 }
 function mouseDown(e) {
+    if (e.button == 2) {
+        //return false;
+    }
+
     if (e.srcElement.getAttribute('dest') == "resizeLeft" || e.srcElement.getAttribute('dest') == "resizeRight") {
         var nr = e.srcElement.getAttribute("nr");
         var dialog = chartManager.dialogFromNr(nr);
@@ -1261,8 +1404,6 @@ class Chart { // @class Chart KLASSE
             const yOffset = line.data.valueMin * yRange * -1;   // Addierung damit min. Value = 0 ist und nicht -75
             var xStep = xStepOrig
             if (line.data.usePath) {
-                console.log('[INFO] Use Path');
-
                 // DOPPELT ?!?!    this.chartLines.forEach(line => {
                 var path = createPath();
                 var x = 1;
@@ -1307,7 +1448,6 @@ class Chart { // @class Chart KLASSE
                 // DOPPELT ?!?    })
             }
             else {
-                console.log('[INFO] Use Polyline');
                 // DOPPELT ?!?    this.chartLines.forEach(line => {
                 var polyLine = createPolyline();
                 var x = 0;
@@ -1356,7 +1496,6 @@ class Chart { // @class Chart KLASSE
             }
 
             this.svg.setAttribute('width', maxWidth.toString());
-            console.log(`[INFO] drawLines maxWidth (=svg.width): ${maxWidth}`);
         });
     }
 
@@ -1726,11 +1865,11 @@ class SelectionDialog { // @class SelectionDialog KLASSE
         var parentDIVOffsetY = rootDIV.clientHeight - parentDIV.clientHeight;
 
         // Prüfen ob es in das Fenster passt
-        if (Number(SELECTION_DIALOG_WIDTH) + left + 20 - parentDIVOffsetX > parentDIV.clientWidth) {
-            left = parentDIV.clientWidth - SELECTION_DIALOG_WIDTH - 20 + parentDIVOffsetX;
+        if (Number(SELECTION_DIALOG_WIDTH) + left + 20 > chartManager.pageWidth) {
+            left = chartManager.pageWidth - SELECTION_DIALOG_WIDTH - 40;
         }
-        if (Number(SELECTION_DIALOG_HEIGHT) + top + 20 - parentDIVOffsetY > parentDIV.clientHeight) {
-            top = parentDIV.clientHeight - SELECTION_DIALOG_HEIGHT + parentDIVOffsetY;
+        if (Number(SELECTION_DIALOG_HEIGHT) + top + 20 > chartManager.pageWidth) {
+            top = chartManager.pageWidth - SELECTION_DIALOG_HEIGHT - 50;
         }
         top -= parentDIVOffsetY;
         left -= parentDIVOffsetX;
@@ -1897,15 +2036,15 @@ class SelectionDialog { // @class SelectionDialog KLASSE
 
         this.div = createDIV();
         this.mark = mark;
-        var left = x;
+        var left = x - chartManager.partValuesStart / chartManager.maximumXStepDivider;
         var top = y;
 
         // Prüfen ob es in das Fenster passt
         if (Number(SELECTION_DIALOG_WIDTH) + left + 20 > chartManager.pageWidth) {
-            left = window.innerWidth - SELECTION_DIALOG_WIDTH - 40;
+            left = chartManager.pageWidth - SELECTION_DIALOG_WIDTH - 40;
         }
         if (Number(SELECTION_DIALOG_HEIGHT) + top + 20 > chartManager.pageWidth) {
-            top = window.innerHeight - SELECTION_DIALOG_HEIGHT - 50;
+            top = chartManager.pageWidth - SELECTION_DIALOG_HEIGHT - 50;
         }
 
         var time1 = dateFormat(chartManager.Time(this.selectionStart), "HH:MM:SS");
@@ -2098,12 +2237,14 @@ class Mark { // @class Mark KLASSE (zeichnet die SELECTION)
                     rect = createRect();
                     this._rect = rect;
                 }
-                var xGapMultiplyer = chartManager.maximumXStepDivider / 2;
-                x *= xGapMultiplyer;
                 rect.setAttribute('x', x);
                 rect.setAttribute('y', 0);
                 var width = this.rowEnd - this.rowStart;
-                rect.setAttribute('width', chartManager.calcPixelFromRowNumber(width) * xGapMultiplyer);
+                var pixelWidth = chartManager.calcPixelFromRowNumber(width);
+                if (pixelWidth < 1) {
+                    pixelWidth = 1;
+                }
+                rect.setAttribute('width', pixelWidth);
                 rect.setAttribute('height', DIAGRAM_HEIGHT);
                 rect.setAttribute("fill", this.color);
                 rect.setAttribute("fill-opacity", MARK_OPACITY);
@@ -2401,6 +2542,7 @@ function createMark(nr, markSource) {
 function changeMark(nr) {
     const dialog = chartManager.dialogFromNr(nr);
     const mark = dialog.mark;
+    const color = dialog.input_color.value;
     const svg = dialog.svg;
     const uuid = ""; // Für Implementierung als Component (wenn Datenbankzugriff besteht und Markierungen geladen werden)
 
@@ -2452,12 +2594,10 @@ function deleteMark(nr) {
         }
 
         if (dialog.mark.source == MARK_SOURCE_ML) {
-            console.log("M - Visible false");
             // Nicht löschen, nur als NICHT SICHTBAR ändern
             dialog.mark.visible = false;
         }
         else {
-            console.log("A - Deleted");
             // Arztmarkierungen werden wirklich gelöscht
             const indexOfMark = chartManager._marks.indexOf(dialog.mark);
             if (indexOfMark > -1) {
@@ -2474,7 +2614,7 @@ function resizeMark(nr) {
     dialog.oldRowStart = dialog.rowStart;
     dialog.oldRowEnd = dialog.rowEnd;
     dialog.rectLeft = createRect();
-    dialog.rectLeft.setAttribute('x', chartManager.calcPixelFromRowNumber(dialog.rowStart));
+    dialog.rectLeft.setAttribute('x', chartManager.calcPixelFromRowNumber(dialog.rowStart - chartManager.partValuesStart));
     dialog.rectLeft.setAttribute('y', 0);
     dialog.rectLeft.setAttribute('width', MARK_DRAGBOX_WIDTH);
     dialog.rectLeft.setAttribute('height', DIAGRAM_HEIGHT);
@@ -2489,7 +2629,7 @@ function resizeMark(nr) {
 
 
     dialog.rectRight = createRect();
-    dialog.rectRight.setAttribute('x', chartManager.calcPixelFromRowNumber(dialog.rowEnd) - MARK_DRAGBOX_WIDTH);
+    dialog.rectRight.setAttribute('x', chartManager.calcPixelFromRowNumber(dialog.rowEnd - chartManager.partValuesStart) - MARK_DRAGBOX_WIDTH);
     dialog.rectRight.setAttribute('y', 0);
     dialog.rectRight.setAttribute('width', MARK_DRAGBOX_WIDTH);
     dialog.rectRight.setAttribute('height', DIAGRAM_HEIGHT);
@@ -2530,10 +2670,6 @@ async function start() { // @function Start
     var chart4 = chartManager.addChart("SpO2");
     chart4.addLine("#880000", "SpO2");
     chart4.addLine("#008800", "SpO2 B-B");
-    chart4.addLine("#000088", "SpO2");
-    chart4.addLine("#888800", "SpO2 B-B");
-    chart4.addLine("#008888", "SpO2");
-    chart4.addLine("#888888", "SpO2 B-B");
 
     var chart5 = chartManager.addChart("Pulsrate");
     chart5.addLine("#000000", "Pulsrate");
@@ -2766,19 +2902,45 @@ async function start() { // @function Start
                 class: "btn grpRight"
             },
             {
+                name: "zoomTo",
+                position: 2.0,
+                visible: true,
+                enable: true,
+                type: ELEMENTTYPES.Select,
+                function: SelectEvent_zoomTo,
+                id: "select_zoomTo",
+                value: 0,
+                label: "<i class='fa-solid fa-magnifying-glass fa-lg'></i>",
+                labelStyle: "",
+                labelClass: "label",
+                class: "select grpLeft",
+                options: [
+                    { value: 0, text: "Aktueller Zoom", id: "ActualZoom" },
+                    { value: 60, text: "1 Minute" },
+                    { value: 120, text: "2 Minuten" },
+                    { value: 180, text: "3 Minuten" },
+                    { value: 240, text: "4 Minuten" },
+                    { value: 300, text: "5 Minuten" },
+                    { value: 600, text: "10 Minuten" },
+                    { value: 1200, text: "20 Minuten" },
+                    { value: 1800, text: "30 Minuten" },
+                    { value: 3600, text: "1 Stunde" },
+                ]
+            },
+            {
                 name: "AllZoom",
-                position: 2,
+                position: 2.2,
                 visible: true,
                 enabled: true,
                 type: ELEMENTTYPES.Button,
                 function: ButtonEvent_AllZoom,
                 label: "Alles",
-                class: "btn grpLeft",
+                class: "btn grpInner",
                 style: ""
             },
             {
                 name: "ZoomOut",
-                position: 2.2,
+                position: 2.4,
                 visible: true,
                 enabled: true,
                 type: ELEMENTTYPES.Button,
@@ -2833,7 +2995,8 @@ async function start() { // @function Start
                 text: "Sichtbar:",
                 type: ELEMENTTYPES.Label,
                 newLine: true,
-                class: "menuLeft"
+                class: "menuLeft",
+                style: "font-size: 0.85em;"
             },
             {
                 name: "Sichtbar",
@@ -2899,8 +3062,70 @@ async function start() { // @function Start
                 labelPos: LABEL_POSITIONS.Right,
                 label: "Beschriftungen",
                 newLine: true,
-                labelClass: "menuLeft"
+                labelClass: "menuLeft",
+                newLineMargin: "1em",
             },
+            {
+                name: "Zoom_Modus",
+                position: 2,
+                visible: true,
+                enabled: true,
+                text: "Zoom-Modus:",
+                type: ELEMENTTYPES.Label,
+                style: "margin-top: 100px;",
+                class: "menuLeft",
+                newLine: true,
+                style: "font-size: 0.85em;"
+            },
+            {
+                name: "Zoom_Modus_1",
+                position: 2.2,
+                visible: true,
+                enabled: true,
+                type: ELEMENTTYPES.Radio,
+                function: Option_Event_ZoomModus,
+                id: "Zoom_Modus_1",
+                value: 1,
+                group: "ZoomModus",
+                label: "Linksbündig",
+                labelClass: "menuLeft",
+                checked: true,
+                newLine: true,
+                labelPos: LABEL_POSITIONS.Right
+            },
+            {
+                name: "Zoom_Modus_2",
+                position: 2.4,
+                visible: true,
+                enabled: true,
+                type: ELEMENTTYPES.Radio,
+                function: Option_Event_ZoomModus,
+                id: "Zoom_Modus_2",
+                value: 2,
+                group: "ZoomModus",
+                label: "Zentriert",
+                labelClass: "menuLeft",
+                checked: false,
+                newLine: true,
+                labelPos: LABEL_POSITIONS.Right
+            },
+            {
+                name: "Zoom_Modus_3",
+                position: 2.6,
+                visible: true,
+                enabled: true,
+                type: ELEMENTTYPES.Radio,
+                function: Option_Event_ZoomModus,
+                id: "Zoom_Modus_3",
+                value: 3,
+                group: "ZoomModus",
+                label: "Rechtsbündig",
+                labelClass: "menuLeft",
+                checked: false,
+                newLine: true,
+                labelPos: LABEL_POSITIONS.Right
+            },
+
         ]
     });
     UILeft.addCSS(".menuLeft { font-size: 0.7em; line-height: 50%; }");
@@ -2936,6 +3161,7 @@ async function start() { // @function Start
     UITop.create();
     UILeft.create();
     chartManager.createVerticalScales();
+    chartManager.setActualZoom();
     // ****************************************************************************************************** 
 
     // BUTTONS EVENTS
@@ -2961,7 +3187,13 @@ async function start() { // @function Start
         const chartDiv = chartManager.div;
         // Alte Position vom Zentrum des Bildschirms aus gesehen
         const posAlt = (chartManager.partValuesStart + (chartDiv.scrollLeft * chartManager.zoomFreq / chartManager.maximumXStepDivider) + (chartManager.pageWidth * chartManager.zoomFreq / chartManager.maximumXStepDivider / 2));
-        chartManager.zoomFreq *= DEFAULT_ZOOMOUT_PERCENT / 100 + 1;
+        const zoomNeu = chartManager.zoomFreq * (DEFAULT_ZOOMOUT_PERCENT / 100 + 1);
+        chartManager.calcPartValuesCount(zoomNeu);
+        var newZoomFreq = chartManager.zoomFreq * (DEFAULT_ZOOMOUT_PERCENT / 100 + 1);
+        if (newZoomFreq > chartManager.allZoom) {
+            newZoomFreq = chartManager.allZoom;
+        }
+        chartManager.zoomFreq = newZoomFreq;
         const posNeu = (chartManager.partValuesStart + (chartDiv.scrollLeft * chartManager.zoomFreq / chartManager.maximumXStepDivider) + (chartManager.pageWidth * chartManager.zoomFreq / chartManager.maximumXStepDivider / 2));
         var newScrollLeft = chartDiv.scrollLeft - ((posNeu - posAlt) / chartManager.zoomFreq * chartManager.maximumXStepDivider);
         if (newScrollLeft < 0) {
@@ -2977,9 +3209,47 @@ async function start() { // @function Start
         }
         chartDiv.scrollLeft = newScrollLeft;
     }
+    function SelectEvent_zoomTo(eventArgs) {
+        const htmlElement = eventArgs.srcElement;
+        const uiElement = htmlElement.UIElement;
+        const uiManager = uiElement.uiManager;
+
+        const zoomSeconds = uiElement.Value;
+        if (zoomSeconds > 0) {
+            // 0 = freier Zoom -> keine Änderung
+            var pos;
+            var scrollPos;
+            if (chartManager.getUIElementFromName("Zoom_Modus_1").Value) {
+                var pos = chartManager.positionLeft;
+                scrollPos = SCROLL_POSITION.LeftLeft;
+            }
+            else if (chartManager.getUIElementFromName("Zoom_Modus_2").Value) {
+                var pos = chartManager.positionCenter;
+                scrollPos = SCROLL_POSITION.Center;
+            }
+            else if (chartManager.getUIElementFromName("Zoom_Modus_3").Value) {
+                var pos = chartManager.positionRight;
+                scrollPos = SCROLL_POSITION.RightRight;
+            }
+
+            chartManager.positionCenter = { values: pos, zoomSeconds: zoomSeconds, scrollPosition: scrollPos };
+            uiElement.Value = 0;
+        }
+    }
     function ButtonEvent_TEST(eventArgs) {
         //chartManager.positionCenter = { timeAbsolut: new Date(0, 0, 0, 4, 10, 0), zoomSeconds: 60 };
-        chartManager.positionCenter = { timeAbsolut: new Date(0, 0, 0, 0, 0, 0), zoomSeconds: 60, scrollPosition: SCROLL_POSITION.Center };
+        var aktuell = chartManager.positionCenter;
+        console.log(`ALT: ${chartManager.zoomFreq}`);
+
+        var zoomFreq = chartManager.zoomFreq / 1.3;
+
+        chartManager.positionCenter = { values: aktuell, zoomValues: zoomFreq, scrollPosition: SCROLL_POSITION.Center };
+        console.log(`NEU: ${chartManager.zoomFreq}`);
+    }
+    function Option_Event_ZoomModus(eventArgs) {
+        const htmlElement = eventArgs.srcElement;
+        const uiElement = htmlElement.UIElement;
+        const uiManager = uiElement.uiManager;
     }
 
     function SelectEvent_XGap(eventArgs) {
@@ -3669,18 +3939,23 @@ class UIManager { // @class UIManager KLASSE
                             labelElement = createElement("label");
                             labelElement.setAttribute("for", data.id);
                             labelElement.innerHTML = data.label;
-                            this.div.appendChild(labelElement);
                             if (data.labelClass) {
                                 labelElement.setAttribute("class", data.labelClass);
                             }
                             if (data.labelStyle) {
                                 labelElement.setAttribute("style", data.labelStyle);
                             }
+                            if (data.labelPos != LABEL_POSITIONS.Right) {
+                                this.div.appendChild(labelElement);
+                            }
                         }
                         if (data.checked) {
                             element.setAttribute("checked", "");
                         }
                         this.div.appendChild(element);
+                        if (data.labelPos == LABEL_POSITIONS.Right) {
+                            this.div.appendChild(labelElement);
+                        }
                         break;
                     case ELEMENTTYPES.Label:
                         element = createElement("label");
@@ -3772,6 +4047,9 @@ class UIManager { // @class UIManager KLASSE
                             var optionElement = createElement("option");
                             optionElement.value = o.value;
                             optionElement.innerHTML = o.text;
+                            if (o.id) {
+                                optionElement.id = o.id;
+                            }
                             element.appendChild(optionElement);
                         });
                         if (data.value) {
@@ -3802,7 +4080,11 @@ class UIManager { // @class UIManager KLASSE
             }
             if (data.newLine) {
                 var br = createElement("span");
-                br.setAttribute("style", "display:block;margin:0em;");
+                var margin = "0em";
+                if (data.newLineMargin) {
+                    margin = data.newLineMargin;
+                }
+                br.setAttribute("style", `display:block;margin-bottom:${margin};margin-left:0;margin-right:0;margin-top:0;`);
                 this.div.appendChild(br);
             }
 
