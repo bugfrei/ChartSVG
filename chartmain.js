@@ -50,7 +50,7 @@ const VSCALE_LINE_COLOR = "#000000";
 const VSCALE_ALIGNMENTS = {
     Left: "left",
     Right: "right"
-}
+};
 const SHIFTED_SCROLL_FACTOR = 8; // 8 faches Scrollen bei Shift+Rechtsklick+Move
 const DIV_TYPES = {
     MenuTop: "menutop",
@@ -59,13 +59,13 @@ const DIV_TYPES = {
     MenuBottom: "menubottom",
     SkalaLeft: "skalaleft",
     SkalaRight: "skalaright"
-}
+};
 const UI_TYPES = {
     MenuTop: "menutop",
     MenuLeft: "menuleft",
     MenuRight: "menuright",
     MenuBottom: "menubottom",
-}
+};
 const ELEMENTTYPES = {
     Button: "button",
     ImageButton: "imagebutton",
@@ -79,23 +79,27 @@ const ELEMENTTYPES = {
     Time: "time",
     Label: "label",
     Select: "select"
-}
+};
 const LABEL_POSITIONS = {
     Left: "left",
     Right: "right"
-}
+};
 const SCROLL_POSITION = {           // Es wird so gescrollt das
     LeftLeft: "leftleft",           // Scrollbalken links, gewünschte Position links ist
     LeftCenter: "leftCenter",       // Scrollbalken links, gewünschte Position zentriert ist
     Center: "center",               // Scrollbalken zentriert, gewünschten Position zentriert ist
     RightRight: "rightright",            // Scrollbalken rechts, gewünschte Position rechts ist
     RightCenter: "rightcenter"      // Scrollbalken rechts, gewünschte Poisition zentriert ist
-}
+};
 const MOUSEBUTTONS = {
     Left: 0,
     Middle: 1,
     Right: 2
-}
+};
+const VIEWTYPES = {
+    Undo: "undo",
+    Saved: "saved"
+};
 const HORIZONTAL_SCALE_CAPTION_MINDIST_X = 60;
 //const HORIZONTAL_SCAPE_CAPTION_FONTSIZE = "0.8em";
 const HORIZONTAL_SCALE_CAPTION_FONTSIZE = "12px";
@@ -106,7 +110,7 @@ var x;// @warn warnung
 
 var chartManager;
 
-class ChartManager { // @class ChartManager KLASSE
+class ChartManager {
     // Default-Values
 
     constructor(json, dataManager) {
@@ -116,7 +120,7 @@ class ChartManager { // @class ChartManager KLASSE
 
         this.allZoom = null; // * 2 notwendig, da Standardansicht IMMER Min/Max verwendet und damit 2 Datenpunkte pro Value anstehen
         this.dataManager = dataManager;
-        this.xGap = DEFAULT_XGAP;
+        this._xGap = DEFAULT_XGAP;
         if (DEFAULT_ZOOM_FREQ) {
             this._zoom_freq = DEFAULT_ZOOM_FREQ;
         }
@@ -133,6 +137,7 @@ class ChartManager { // @class ChartManager KLASSE
         this._verticalScale = [];   // Auflistungen der vertikalen Skalas (in der Regel nur eine für links)
         this._horizontalScale = []; // Auflistung der horizontalen Skalas (in der Regel nur eine für oben)
         this._uimanagers = [];      // Auflistung der UIs
+        this._views = [];           // Auflistung vorheriger Views (für Undo View und gespeicherte Views)
         this.horizontalScaleShowsTime = false;   // Zeigt die Skala die Uhrzeit (true) oder die Zeitdifferenz (false)
         this.visibility = {
             markDoc: true,
@@ -140,7 +145,7 @@ class ChartManager { // @class ChartManager KLASSE
             markReport: true,
             markText: true
         };
-        this.HScaleRanges = [       // die Bereiche, die in der Horizontalen Skala dargestellt werden können @settings HScaleRanges (Seconds, LineHeight,...)
+        this.HScaleRanges = [       // die Bereiche, die in der Horizontalen Skala dargestellt werden können 
             {
                 seconds: 14400,      // 4 Stundenabstände
                 minPixelDistForText: HORIZONTAL_SCALE_CAPTION_MINDIST_X,         // Minimum Abstand zwischen 2 Beschriftungen in Pixel
@@ -483,7 +488,7 @@ class ChartManager { // @class ChartManager KLASSE
                 }
             }
         }
-        this.markTypes = [ // @settings MarkTypes (Normal, Apnoe, ...)
+        this.markTypes = [
             {
                 text: "Normal",     // TODO i18n
                 color: "#00FF00"
@@ -651,6 +656,79 @@ class ChartManager { // @class ChartManager KLASSE
         }
         return uielement;
     }
+
+    get xGap() {
+        return this._xGap;
+    }
+    set xGap(xgap) {
+        const uiElement = chartManager.getUIElementFromName("xGap");
+        uiElement.Value = xgap;
+
+        this._xGap = xgap;
+    }
+
+    // @pos Views
+
+    get views() { return this._views; }
+    saveViewUndo() {
+        this.saveView({ viewtype: VIEWTYPES.Undo });
+    }
+    saveView({ viewtype, zoomFreq, xGap, partValuesCount, partValuesStart, scrollLeft, time, key, name }) {
+        if (!viewtype) {
+            throw new Error("[ERROR] Undefinierter Viewtype bei chartManager.saveView!");
+        }
+        if (!zoomFreq) zoomFreq = this.zoomFreq;
+        if (!xGap) xGap = this.xGap;
+        if (!partValuesCount) partValuesCount = this.partValuesCount;
+        if (!partValuesStart) partValuesStart = this.partValuesStart;
+        if (!scrollLeft) scrollLeft = this.div.scrollLeft;
+        if (!time) time = new Date();
+        if (!key) key = "";
+        if (!name) name = "";
+
+        var view = {
+            type: viewtype,
+            zoomFreq: zoomFreq,
+            xGap: xGap,
+            partValuesStart: partValuesStart,
+            partValuesCount: partValuesCount,
+            scrollLeft: scrollLeft,
+            time: time,
+            key: key,
+            name: name
+        }
+        this._views.push(view);
+    }
+    restoreView(view) {
+        chartManager.xGap = view.xGap;
+        chartManager.partValuesStart = view.partValuesStart;
+        chartManager.partValuesCount = view.partValuesCount;
+        chartManager.zoomFreq = view.zoomFreq; // Damit wird das Diagramm gezeichnet
+        chartManager.div.scrollLeft = view.scrollLeft;
+    }
+    restoreViewFromKey(key) {
+        const view = this._views.find(v => v.key == key);
+        if (view) {
+            this.restoreView(view);
+        }
+    }
+    restoreViewFromName(name) {
+        const view = this._views.find(v => v.name == name);
+        if (view) {
+            this.restoreView(view);
+        }
+    }
+    restoreViewLastUndo(remove) {
+        const view = this._views.findLast(v => v.type == VIEWTYPES.Undo);
+        if (view) {
+            if (remove) {
+                const idx = this._views.indexOf(view);
+                this._views.splice(idx, 1);
+            }
+            this.restoreView(view);
+        }
+    }
+
 
     get positionLeft() {
         // Alte Position vom Zentrum des Bildschirms aus gesehen
@@ -1131,6 +1209,7 @@ function selectionTitleClicked() {
 }
 function doZoom() { // @function doZoom (Zoom ausführen)
     // Calculate new Zoom
+    chartManager.saveViewUndo();
     const selectionPixel = chartManager.clickStatus.width;
     const zoomXValuesFor1Pixel = chartManager.zoomFreq;
     const selectionValues = selectionPixel * zoomXValuesFor1Pixel;
@@ -1251,7 +1330,7 @@ function mouseClick(e) {
     }
 }
 
-function createDIV() { // @function createDIV (und alle anderen Create-Funktionen)
+function createDIV() {
     //return document.createElementNS('http://www.w3.org/2000/div', 'div');
     return document.createElement('div');
 }
@@ -1342,7 +1421,7 @@ function dateFormat(date, format) {
 
     return res;
 }
-class Chart { // @class Chart KLASSE
+class Chart {
     constructor(manager, div, svg, json, titel) {
         this.chartManager = manager;
         this.titel = titel;
@@ -1548,7 +1627,7 @@ function startNode() {
 
 }
 
-const dataManager = // @object dataManager (Linienarten wie Nasaler Druck definieren, dataFunction, valueMin/Max...) 
+const dataManager =
 {
     json: null,
     dataInformation: [
@@ -1796,7 +1875,7 @@ const dataManager = // @object dataManager (Linienarten wie Nasaler Druck defini
     }
 }
 
-class SelectionDialog { // @class SelectionDialog KLASSE
+class SelectionDialog {
     constructor(x, y, x1, x2, svg, markSource) {
         this._nr = chartManager.nextDialogNr();
         this.markSource = markSource;
@@ -2191,7 +2270,7 @@ class SelectionDialog { // @class SelectionDialog KLASSE
     }
 }
 
-class Mark { // @class Mark KLASSE (zeichnet die SELECTION)
+class Mark {
     constructor(uuid, nr, note, color, type, valid, svg, source, rowStart, rowEnd, visible = true) {
         this.nr = nr;
         this.uuid = uuid;
@@ -2304,7 +2383,7 @@ class Mark { // @class Mark KLASSE (zeichnet die SELECTION)
     }
 }
 
-class PathGenerator { // @class PathGenerator KLASSE
+class PathGenerator {
     constructor({ startPointX, startPointY, SVG, min, max }) {
         this.startPointX = 0;
         this.startPointY = 0;
@@ -2656,7 +2735,6 @@ async function start() { // @function Start
 
     // ------------------------------  END Fuckup Point ------------------------------ 
 
-    // @pos Charts und Horzintale Skalas erstellen/hinzufügen
     var chart1 = chartManager.addChart("Nasal");
     chartManager.addHorizontalScale({ before: chart1, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Bottom });
     chart1.addLine("#000000", "Nasaler Druck");
@@ -2683,7 +2761,6 @@ async function start() { // @function Start
     chartManager.addHorizontalScale({ after: chart7, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Top });
 
 
-    // @pos DEMO UI ELEMENTE
     /// #start weiss
     const UITop2 = chartManager.addUIManager({
         div: UI_TYPES.MenuTop, height: "auto",
@@ -2856,7 +2933,6 @@ async function start() { // @function Start
     UITop2.addCSS('div,button,select,label,option,p{color:#0854a0;font-size:18px;font-weight:700;font-family:"Roboto",sans-serif}.label{box-sizing:border-box;background-color:#fff;color:#0854a0;font-size:18px;min-width:103px;min-height:38px;margin:0 5px 0 0;text-align:center;padding-top:8px}.select{background-color:#fff;border:1px solid #0854a0;border-radius:5px;color:#0854a0;padding:0;font-size:18px;cursor:pointer;min-width:103px;min-height:38px;margin:0 5px 0 0}.select:focus{outline:1px solid #0854a0}.btn{background-color:#fff;border:1px solid #0854a0;border-radius:5px;color:#0854a0;padding:0;font-size:18px;cursor:pointer;min-width:103px;min-height:38px;margin:0 5px 0 0}.grpLeft{border-radius:5px 0 0 5px;margin:0}.grpInner{border-left:none;border-radius:0 0 0 0;margin:0}.grpRight{border-left:none;border-radius:0 5px 5px 0}.btn:hover{background-color:#ebf5fe;transition:.7s}.btn:active{background-color:#0854a0;transition:0;color:#fff}.btn:disabled{color:#9cbbda;border-color:#9cbbda}');
     //UITop.addCSS("input[type=checkbox] { visibility: hidden; } .checkbox-example { width: 45px; height: 15px; background: #555; margin: 20px 10px; position: relative; border-radius: 5px; } .checkbox-example label { display: block; width: 18px; height: 18px; border-radius: 50%; transition: all .5s ease; cursor: pointer; position: absolute; top: -2px; left: -3px; background: #ccc; } .checkbox-example input[type=checkbox]:checked + label { left: 27px; }");
 
-    // @pos FUNKTIONALE UI ELEMENTE
     /// #start rot
     const UITop = chartManager.addUIManager({
         div: UI_TYPES.MenuTop, height: "auto",
@@ -2946,6 +3022,17 @@ async function start() { // @function Start
                 type: ELEMENTTYPES.Button,
                 function: ButtonEvent_ZoomOut,
                 label: "<i class='fa-solid fa-magnifying-glass-minus fa-lg'></i>",
+                class: "btn grpInner",
+                style: ""
+            },
+            {
+                name: "ZoomUndo",
+                position: 2.4,
+                visible: true,
+                enabled: true,
+                type: ELEMENTTYPES.Button,
+                function: ButtonEvent_ZoomUndo,
+                label: "<i class='fa-solid fa-undo fa-lg'></i>",
                 class: "btn grpRight",
                 style: ""
             },
@@ -3144,7 +3231,6 @@ async function start() { // @function Start
     // ** Left (Menu oder Skalas)                                                                        ** 
     // ** Right (Menu oder Skalas)                                                                       ** 
     // **************************************************************************************************** 
-    // @pos Zusätzliche DIVs, u.a. VerticaleScale, VScale, VSkala
     // Tops
     // Bottoms
     // Lefts
@@ -3153,7 +3239,6 @@ async function start() { // @function Start
     // Rights
 
     // ********************************************* CREATE ALL ********************************************* 
-    // @pos CreateAll Aufruf
     chartManager.createAll();
 
     loadMarks();
@@ -3179,11 +3264,16 @@ async function start() { // @function Start
         scroll(100);
     }
     function ButtonEvent_AllZoom(eventArgs) {
+        chartManager.saveViewUndo();
         chartManager.partValuesStart = 0;
         chartManager.partValuesCount = chartManager.json.data.length;
         chartManager.zoomFreq = chartManager.allZoom;
     }
+    function ButtonEvent_ZoomUndo(eventArgs) {
+        chartManager.restoreViewLastUndo(true);
+    }
     function ButtonEvent_ZoomOut(eventArgs) {
+        chartManager.saveViewUndo();
         const chartDiv = chartManager.div;
         // Alte Position vom Zentrum des Bildschirms aus gesehen
         const posAlt = (chartManager.partValuesStart + (chartDiv.scrollLeft * chartManager.zoomFreq / chartManager.maximumXStepDivider) + (chartManager.pageWidth * chartManager.zoomFreq / chartManager.maximumXStepDivider / 2));
@@ -3216,7 +3306,8 @@ async function start() { // @function Start
 
         const zoomSeconds = uiElement.Value;
         if (zoomSeconds > 0) {
-            // 0 = freier Zoom -> keine Änderung
+            // 0 = Aktueller Zoom (immer gewähltes Item, sollte nicht auswählbar sein)
+            chartManager.saveViewUndo();
             var pos;
             var scrollPos;
             if (chartManager.getUIElementFromName("Zoom_Modus_1").Value) {
@@ -3236,15 +3327,9 @@ async function start() { // @function Start
             uiElement.Value = 0;
         }
     }
+    // @pos TEST-Button Eventfunktion
     function ButtonEvent_TEST(eventArgs) {
-        //chartManager.positionCenter = { timeAbsolut: new Date(0, 0, 0, 4, 10, 0), zoomSeconds: 60 };
-        var aktuell = chartManager.positionCenter;
-        console.log(`ALT: ${chartManager.zoomFreq}`);
-
-        var zoomFreq = chartManager.zoomFreq / 1.3;
-
-        chartManager.positionCenter = { values: aktuell, zoomValues: zoomFreq, scrollPosition: SCROLL_POSITION.Center };
-        console.log(`NEU: ${chartManager.zoomFreq}`);
+        chartManager.restoreViewLastUndo(true);
     }
     function Option_Event_ZoomModus(eventArgs) {
         const htmlElement = eventArgs.srcElement;
@@ -3253,6 +3338,7 @@ async function start() { // @function Start
     }
 
     function SelectEvent_XGap(eventArgs) {
+        chartManager.saveViewUndo();
         const htmlElement = eventArgs.srcElement;
         const uiElement = htmlElement.UIElement;
         const uiManager = uiElement.uiManager;
@@ -3371,7 +3457,7 @@ function loadMarks() {
     chartManager._marks.push(mark2);
 }
 
-class Vertical_Scale { // @class Vertical_Scale KLASSE
+class Vertical_Scale {
     constructor({ vscale_alignment, width }) {
         if (vscale_alignment == VSCALE_ALIGNMENTS.Left) {
             this.div = chartManager.addDIV(DIV_TYPES.MenuLeft, { width: width });
@@ -3534,7 +3620,7 @@ class Vertical_Scale { // @class Vertical_Scale KLASSE
     }
 
 }
-class HorizontalScale { // @class HorizontaleScale KLASSE
+class HorizontalScale {
     constructor({ before, after, height, align }) {
         this.before = before;
         this.after = after;
@@ -3711,7 +3797,7 @@ class HorizontalScale { // @class HorizontaleScale KLASSE
 }
 
 
-class UIElement { // @class UIElement KLASSE
+class UIElement {
     constructor(data, uiManager) {
         this.data = data;
         this.uiManager = uiManager;
@@ -3781,7 +3867,7 @@ class UIElement { // @class UIElement KLASSE
     }
 }
 
-class UIManager { // @class UIManager KLASSE
+class UIManager {
     constructor({ div, height, width, elementsData }) {
         this.byside = false;
         if (div == UI_TYPES.MenuTop) {
