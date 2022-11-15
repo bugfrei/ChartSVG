@@ -138,7 +138,7 @@ class ChartManager {
         this._horizontalScale = []; // Auflistung der horizontalen Skalas (in der Regel nur eine für oben)
         this._uimanagers = [];      // Auflistung der UIs
         this._views = [];           // Auflistung vorheriger Views (für Undo View und gespeicherte Views)
-        this.horizontalScaleShowsTime = false;   // Zeigt die Skala die Uhrzeit (true) oder die Zeitdifferenz (false)
+        this.horizontalScaleShowsTime = true;   // zeigt die skala die uhrzeit (true) oder die Zeitdifferenz (false)
         this.visibility = {
             markDoc: true,
             markML: true,
@@ -1645,8 +1645,8 @@ const dataManager =
                 var newData = dataManager.simpleMinMax(dataInformation.data, factor, maxFreq);
                 return newData;
             },
-            "valueMin": -3000,
-            "valueMax": 32767,
+            "valueMin": -48.3166,
+            "valueMax": 48.3166,
             "usePath": true,
             /*
             zeroLine: Objekt mit mindestens 3 Angaben:
@@ -1672,8 +1672,8 @@ const dataManager =
                 var newData = dataManager.simpleMinMax(dataInformation.data, factor, maxFreq);
                 return newData;
             },
-            "valueMin": -2200,
-            "valueMax": 32767,
+            "valueMin": -17.0449,
+            "valueMax": 17.0449,
             "usePath": true,
             "zeroLine": { color: "#FF0000", opacity: 0.3, height: 1, style: '' }
         }],
@@ -1692,8 +1692,8 @@ const dataManager =
                 var newData = dataManager.simpleMinMax(dataInformation.data, factor, maxFreq);
                 return newData;
             },
-            "valueMin": -1400,
-            "valueMax": 17100,
+            "valueMin": -48.3166,
+            "valueMax": 48.3166,
             "usePath": true,
             "zeroLine": { color: "#FF0000", opacity: 0.3, height: 1, style: '' }
         }],
@@ -1712,8 +1712,8 @@ const dataManager =
                 var newData = dataManager.simpleMinMax(dataInformation.data, factor, maxFreq);
                 return newData;
             },
-            "valueMin": -1200,
-            "valueMax": 10000,
+            "valueMin": -32767,
+            "valueMax": 32767,
             "usePath": true,
             "zeroLine": { color: "#FF0000", opacity: 0.3, height: 1, style: '' }
         }],
@@ -1732,8 +1732,8 @@ const dataManager =
                 var newData = dataManager.simpleMinMax(dataInformation.data, factor, maxFreq);
                 return newData;
             },
-            "valueMin": -1700,
-            "valueMax": 12000,
+            "valueMin": -32767,
+            "valueMax": 32767,
             "usePath": true,
             "zeroLine": false
         }],
@@ -1752,8 +1752,8 @@ const dataManager =
                 var newData = dataManager.simpleMinMax(dataInformation.data, factor, maxFreq);
                 return newData;
             },
-            "valueMin": -1700,
-            "valueMax": 12000,
+            "valueMin": -32767,
+            "valueMax": 32767,
             "usePath": true,
             "zeroLine": false
         }],
@@ -1772,12 +1772,12 @@ const dataManager =
                 var newData = dataManager.simpleMinMax(dataInformation.data, factor, maxFreq);
                 return newData;
             },
-            "valueMin": -3400,
+            "valueMin": -32767,
             "valueMax": 32767,
             "usePath": true,
             "zeroLine": false
         }],
-        ["Aktivitaet", { // "h"
+        ["Aktivität", { // "h"
             "dataFunction": function recalc(dataInformation, factor, maxFreq) {
                 var x = 0;
                 if (factor == 0 || dataInformation.freq == 0) {
@@ -1792,8 +1792,8 @@ const dataManager =
                 var newData = dataManager.simpleMinMax(dataInformation.data, factor, maxFreq);
                 return newData;
             },
-            "valueMin": -1300,
-            "valueMax": 24000,
+            "valueMin": -32767,
+            "valueMax": 32767,
             "usePath": true,
             "zeroLine": false
         }]
@@ -1939,6 +1939,7 @@ class SelectionDialog {
 
 
         this.div = createDIV();
+        this.div.setAttribute("class", "selectionDialog");
         var left = x;
         var top = y;
         var parentDIVOffsetY = rootDIV.clientHeight - parentDIV.clientHeight;
@@ -1964,7 +1965,7 @@ class SelectionDialog {
         var timeDiff = dateFormat(secDate, "HH:MM:SS");             // TODO i18n
 
         // DIV (Rahmen)
-        this.div.setAttribute("style", `position:absolute;left:${left}px;top:${top}px;border-width:${SELECTION_DIALOG_BORDERWIDTH}px;border-color:${SELECTION_DIALOG_BORDERCOLOR};border-style: solid;background: ${SELECTION_DIALOG_BACKGROUNDCOLOR}; width: ${SELECTION_DIALOG_WIDTH}px; height: ${SELECTION_DIALOG_HEIGHT}px;`);
+        this.div.setAttribute("style", `position:absolute;left:${left}px;top:${top}px;width: ${SELECTION_DIALOG_WIDTH}px; height: ${SELECTION_DIALOG_HEIGHT}px;`);
         parentDIV.appendChild(this.div);
 
         // Tabelle für Information
@@ -2026,6 +2027,7 @@ class SelectionDialog {
         this.select_typ = createElement("select");
         this.select_typ.setAttribute("id", "typ");
         this.select_typ.setAttribute("style", `width:${SELECTION_DIALOG_WIDTH - 9}px;margin-left:5px;`);
+        this.select_typ.setAttribute("class", "select");
         this.select_typ.setAttribute("onchange", `typSelected(this, ${this.Nr});`);
 
         var option;
@@ -2085,6 +2087,7 @@ class SelectionDialog {
         input.setAttribute("type", "button");
         input.setAttribute("id", "create");
         input.setAttribute("style", `margin-left:5px;`);
+        input.setAttribute("class", "btnDialog");
         input.setAttribute("onclick", `createMark(${this.Nr}, "${this.markSource}");`);
         input.value = "Erstellen"; // TODO i18n
         this.div.appendChild(input);
@@ -2093,6 +2096,7 @@ class SelectionDialog {
         input = createElement("input");
         input.setAttribute("type", "button");
         input.setAttribute("id", "cancel");
+        input.setAttribute("class", "btnDialog");
         input.setAttribute("style", `float:right;margin-right:5px;`);
         input.setAttribute("onclick", `cancelMark(${this.Nr});`);
         input.value = "Abbruch"; // TODO i18n
@@ -2114,6 +2118,7 @@ class SelectionDialog {
         const parentDIV = chartManager.div;
 
         this.div = createDIV();
+        this.div.setAttribute("class", "selectionDialog");
         this.mark = mark;
         var left = x - chartManager.partValuesStart / chartManager.maximumXStepDivider;
         var top = y;
@@ -2137,7 +2142,7 @@ class SelectionDialog {
         var timeDiff = dateFormat(secDate, "HH:MM:SS");             // TODO i18n
 
         // DIV (Rahmen)
-        this.div.setAttribute("style", `position:absolute;left:${left}px;top:${top}px;border-width:${SELECTION_DIALOG_BORDERWIDTH}px;border-color:${SELECTION_DIALOG_BORDERCOLOR};border-style: solid;background: ${SELECTION_DIALOG_BACKGROUNDCOLOR}; width: ${SELECTION_DIALOG_WIDTH}px; height: ${SELECTION_DIALOG_HEIGHT}px;`);
+        this.div.setAttribute("style", `position:absolute;left:${left}px;top:${top}px;width: ${SELECTION_DIALOG_WIDTH}px; height: ${SELECTION_DIALOG_HEIGHT}px;`);
         parentDIV.appendChild(this.div);
 
         // Tabelle für Information
@@ -2192,6 +2197,7 @@ class SelectionDialog {
 
         this.select_typ = createElement("select");
         this.select_typ.setAttribute("id", "typ");
+        this.select_typ.setAttribute("class", "select");
         this.select_typ.setAttribute("style", `width:${SELECTION_DIALOG_WIDTH - 9}px;margin-left:5px;`);
         this.select_typ.setAttribute("onchange", `typSelected(this, ${this.Nr});`);
 
@@ -2237,6 +2243,7 @@ class SelectionDialog {
         input.setAttribute("type", "button");
         input.setAttribute("id", "create");
         input.setAttribute("style", `margin-left:5px;`);
+        input.setAttribute("class", "btnDialog");
         input.setAttribute("onclick", `changeMark(${this.Nr});`);
         input.value = "Ändern"; // TODO i18n
         this.div.appendChild(input);
@@ -2245,7 +2252,8 @@ class SelectionDialog {
         input = createElement("input");
         input.setAttribute("type", "button");
         input.setAttribute("id", "cancel");
-        input.setAttribute("style", `position: absolute; left:5.3em;`);
+        input.setAttribute("style", `position: absolute; left:6.75em;`);
+        input.setAttribute("class", "btnDialog");
         input.setAttribute("onclick", `resizeMark(${this.Nr});`);
         input.value = "Start/Ende"; // TODO i18n
         this.div.appendChild(input);
@@ -2254,7 +2262,8 @@ class SelectionDialog {
         input = createElement("input");
         input.setAttribute("type", "button");
         input.setAttribute("id", "cancel");
-        input.setAttribute("style", `position: absolute; left:11.7em;`);
+        input.setAttribute("style", `position: absolute; left:13.2em;`);
+        input.setAttribute("class", "btnDialog");
         input.setAttribute("onclick", `deleteMark(${this.Nr});`);
         input.value = "Löschen"; // TODO i18n
         this.div.appendChild(input);
@@ -2264,6 +2273,7 @@ class SelectionDialog {
         input.setAttribute("type", "button");
         input.setAttribute("id", "cancel");
         input.setAttribute("style", `float:right;margin-right:5px;`);
+        input.setAttribute("class", "btnDialog");
         input.setAttribute("onclick", `cancelMark(${this.Nr});`);
         input.value = "Abbruch"; // TODO i18n
         this.div.appendChild(input);
@@ -2756,7 +2766,7 @@ async function start() { // @function Start
     chart6.addLine("#000000", "Plethysmogramm");
 
     var chart7 = chartManager.addChart("Aktivität");
-    chart7.addLine("#000000", "Aktivitaet");
+    chart7.addLine("#000000", "Aktivität");
 
     chartManager.addHorizontalScale({ after: chart7, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Top });
 
@@ -2930,7 +2940,7 @@ async function start() { // @function Start
         ]
     });
     /// #end weiss
-    UITop2.addCSS('div,button,select,label,option,p{color:#0854a0;font-size:18px;font-weight:700;font-family:"Roboto",sans-serif}.label{box-sizing:border-box;background-color:#fff;color:#0854a0;font-size:18px;min-width:103px;min-height:38px;margin:0 5px 0 0;text-align:center;padding-top:8px}.select{background-color:#fff;border:1px solid #0854a0;border-radius:5px;color:#0854a0;padding:0;font-size:18px;cursor:pointer;min-width:103px;min-height:38px;margin:0 5px 0 0}.select:focus{outline:1px solid #0854a0}.btn{background-color:#fff;border:1px solid #0854a0;border-radius:5px;color:#0854a0;padding:0;font-size:18px;cursor:pointer;min-width:103px;min-height:38px;margin:0 5px 0 0}.grpLeft{border-radius:5px 0 0 5px;margin:0}.grpInner{border-left:none;border-radius:0 0 0 0;margin:0}.grpRight{border-left:none;border-radius:0 5px 5px 0}.btn:hover{background-color:#ebf5fe;transition:.7s}.btn:active{background-color:#0854a0;transition:0;color:#fff}.btn:disabled{color:#9cbbda;border-color:#9cbbda}');
+    UITop2.addCSS('.selectionDialog{border:1px solid #0854a0;border-radius:5px;color:#0854a0;background-color:#ebf5fe;font-size:16px;font-weight:700;font-family:"Roboto",sans-serif}.btnDialog{background-color:#fff;border:1px solid #0854a0;border-radius:5px;color:#0854a0;padding:0;font-size:12px;cursor:pointer;min-width:60px;min-height:32px;margin:0 5px 0 0}.btnDialog:hover{background-color:#ebf5fe;transition:.7s}.btnDialog:active{background-color:#0854a0;transition:0;color:#fff;fill:#fff}.btnDialog:disabled{color:#9cbbda;border-color:#9cbbda}.btnDialog:focus{outline:1px solid #0854a0}.btn svg{vertical-align:middle;fill:#0854a0;width:28px;height:28px}button,select,label,option,p{color:#0854a0;font-size:18px;font-weight:700;font-family:"Roboto",sans-serif}.label{display:inline-block;box-sizing:border-box;background-color:#fff;color:#0854a0;font-size:18px;min-width:103px;min-height:38px;margin:0 5px 0 0;text-align:center;padding-top:8px}input[type="text"],.select{box-sizing:border-box;background-color:#fff;border:1px solid #0854a0;border-radius:5px;color:#0854a0;padding:0;font-size:18px;cursor:pointer;min-width:103px;min-height:38px;margin:0 5px 0 0}input[type="text"]:focus,.select:focus{outline:1px solid #0854a0}input[type="text"]{padding:0 8px}input[type="checkbox"]{color:#0854a0;min-width:22px;min-height:22px}.btn{background-color:#fff;border:1px solid #0854a0;border-radius:5px;color:#0854a0;padding:0;font-size:18px;cursor:pointer;min-width:103px;min-height:38px;margin:0 5px 0 0}.grpLeft{border-radius:5px 0 0 5px;margin:0}.grpInner{border-left:none;border-radius:0 0 0 0;margin:0}.grpRight{border-left:none;border-radius:0 5px 5px 0}.btn:hover{background-color:#ebf5fe;transition:.7s}.btn:active{background-color:#0854a0;transition:0;color:#fff;fill:#fff}.btn:disabled{color:#9cbbda;border-color:#9cbbda}.btn:focus{outline:1px solid #0854a0}.grpRight:focus{border:1px solid #0854a0;outline:1px solid #0854a0}.grpLeft:focus{border:1px solid #0854a0;outline:1px solid #0854a0}.grpInner:focus{border:1px solid #0854a0;outline:1px solid #0854a0}');
     //UITop.addCSS("input[type=checkbox] { visibility: hidden; } .checkbox-example { width: 45px; height: 15px; background: #555; margin: 20px 10px; position: relative; border-radius: 5px; } .checkbox-example label { display: block; width: 18px; height: 18px; border-radius: 50%; transition: all .5s ease; cursor: pointer; position: absolute; top: -2px; left: -3px; background: #ccc; } .checkbox-example input[type=checkbox]:checked + label { left: 27px; }");
 
     /// #start rot
@@ -2987,7 +2997,7 @@ async function start() { // @function Start
                 id: "select_zoomTo",
                 value: 0,
                 label: "<i class='fa-solid fa-magnifying-glass fa-lg'></i>",
-                labelStyle: "",
+                labelStyle: "text-align:right;min-width:2em;",
                 labelClass: "label",
                 class: "select grpLeft",
                 options: [
@@ -3343,9 +3353,11 @@ async function start() { // @function Start
         const uiElement = htmlElement.UIElement;
         const uiManager = uiElement.uiManager;
 
+        var oldXGap = chartManager.xGap;
         chartManager.xGap = Number(uiElement.Value);
         chartManager.createAll();
-
+        var newXGap = chartManager.xGap;
+        chartManager.div.scrollLeft = (chartManager.div.scrollLeft / (oldXGap + 1) * (newXGap + 1));
     }
     function Checkbox_Event_SichtbarChanges(eventArgs) {
         const htmlElement = eventArgs.srcElement;
