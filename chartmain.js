@@ -1777,7 +1777,7 @@ const dataManager =
             "usePath": true,
             "zeroLine": false
         }],
-        ["Aktivität", { // "h"
+        ["Aktivitaet", { // "h"
             "dataFunction": function recalc(dataInformation, factor, maxFreq) {
                 var x = 0;
                 if (factor == 0 || dataInformation.freq == 0) {
@@ -1792,8 +1792,8 @@ const dataManager =
                 var newData = dataManager.simpleMinMax(dataInformation.data, factor, maxFreq);
                 return newData;
             },
-            "valueMin": -32767,
-            "valueMax": 32767,
+            "valueMin": -10,
+            "valueMax": 10,
             "usePath": true,
             "zeroLine": false
         }]
@@ -2766,7 +2766,7 @@ async function start() { // @function Start
     chart6.addLine("#000000", "Plethysmogramm");
 
     var chart7 = chartManager.addChart("Aktivität");
-    chart7.addLine("#000000", "Aktivität");
+    chart7.addLine("#000000", "Aktivitaet");
 
     chartManager.addHorizontalScale({ after: chart7, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Top });
 
