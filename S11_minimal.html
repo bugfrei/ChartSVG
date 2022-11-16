@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Charts mit Mockdaten</title>
+    <style>
+        .chartWrapper {
+            position: relative;
+            overflow-x: auto;
+        }
+
+        .chartWrapper>SVG {
+            position: absolute;
+            left: 0;
+            top: 0;
+            pointer-events: none;
+        }
+
+        .chartAreaWrapper {
+            width: 100%;
+            overflow-x: scroll;
+            float: left;
+        }
+    </style>
+    <script src="https://kit.fontawesome.com/2beb431dde.js" crossorigin="anonymous">
+    </script>
+</head>
+
+<body background-color="#FF0000">
+    <!--
+    <svg height="30">
+        <a href="javascript:alert('huhu');">
+            <rect x="0" y="0" width="200" height="40" fill="red"> </rect>
+            <text x="0" y="15" fill="green" id="OUT">Test</text>
+        </a>
+    </svg>
+-->
+    <div id="chart"></div>
+</body>
+
+</html>
+<script src="./chartmin.js" defer> </script>
