@@ -1627,24 +1627,27 @@ function startNode() {
 
 }
 
+function standardDataFunction(dataInformation, factor, maxFreq) {
+    if (factor == 0 || dataInformation.freq == 0) {
+        // Alles übergeben wenn kein Faktor oder Frequenz vorhanden
+        return dataInformation.data;
+    }
+    if (factor <= 1) {
+        // Exakt 1 zu 1 Faktor (oder kleiner 1) - Alles im original übergeben, kein AVG oder Min/Max Ermittlung nötig
+        return dataInformation.data;
+    }
+    // Interpolierung zur y-Größe der Diagramme erfolgt beim zeichnen
+    debugger;
+    var newData = dataManager.simpleMinMax(dataInformation.data, factor, maxFreq);
+    return newData;
+}
+// @object dataManager (Signal-Definitionen)
 const dataManager =
 {
     json: null,
     dataInformation: [
         ["Nasaler Druck", { // "a"
-            "dataFunction": function recalc(dataInformation, factor, maxFreq) {
-                if (factor == 0 || dataInformation.freq == 0) {
-                    // Alles übergeben wenn kein Faktor oder Frequenz vorhanden
-                    return dataInformation.data;
-                }
-                if (factor <= 1) {
-                    // Exakt 1 zu 1 Faktor (oder kleiner 1) - Alles im original übergeben, kein AVG oder Min/Max Ermittlung nötig
-                    return dataInformation.data;
-                }
-                // Interpolierung zur y-Größe der Diagramme erfolgt beim zeichnen
-                var newData = dataManager.simpleMinMax(dataInformation.data, factor, maxFreq);
-                return newData;
-            },
+            "dataFunction": standardDataFunction,
             "valueMin": -48.3166,
             "valueMax": 48.3166,
             "usePath": true,
@@ -1659,139 +1662,49 @@ const dataManager =
             "zeroLine": { color: "#FF0000", opacity: 0.3, height: 1, style: '' }
         }],
         ["Thorax", { // "b"
-            "dataFunction": function recalc(dataInformation, factor, maxFreq) {
-                if (factor == 0 || dataInformation.freq == 0) {
-                    // Alles übergeben wenn kein Faktor oder Frequenz vorhanden
-                    return dataInformation.data;
-                }
-                if (factor <= 1) {
-                    // Exakt 1 zu 1 Faktor (oder kleiner 1) - Alles im original übergeben, kein AVG oder Min/Max Ermittlung nötig
-                    return dataInformation.data;
-                }
-                // Interpolierung zur y-Größe der Diagramme erfolgt beim zeichnen
-                var newData = dataManager.simpleMinMax(dataInformation.data, factor, maxFreq);
-                return newData;
-            },
+            "dataFunction": standardDataFunction,
             "valueMin": -17.0449,
             "valueMax": 17.0449,
             "usePath": true,
             "zeroLine": { color: "#FF0000", opacity: 0.3, height: 1, style: '' }
         }],
         ["PSchnarchen", { // "c"
-            "dataFunction": function recalc(dataInformation, factor, maxFreq) {
-                var x = 0;
-                if (factor == 0 || dataInformation.freq == 0) {
-                    // Alles übergeben wenn kein Faktor oder Frequenz vorhanden
-                    return dataInformation.data;
-                }
-                if (factor <= 1) {
-                    // Exakt 1 zu 1 Faktor (oder kleiner 1) - Alles im original übergeben, kein AVG oder Min/Max Ermittlung nötig
-                    return dataInformation.data;
-                }
-                // Interpolierung zur y-Größe der Diagramme erfolgt beim zeichnen
-                var newData = dataManager.simpleMinMax(dataInformation.data, factor, maxFreq);
-                return newData;
-            },
+            "dataFunction": standardDataFunction,
             "valueMin": -48.3166,
             "valueMax": 48.3166,
             "usePath": true,
             "zeroLine": { color: "#FF0000", opacity: 0.3, height: 1, style: '' }
         }],
         ["SpO2", { // "d"
-            "dataFunction": function recalc(dataInformation, factor, maxFreq) {
-                var x = 0;
-                if (factor == 0 || dataInformation.freq == 0) {
-                    // Alles übergeben wenn kein Faktor oder Frequenz vorhanden
-                    return dataInformation.data;
-                }
-                if (factor <= 1) {
-                    // Exakt 1 zu 1 Faktor (oder kleiner 1) - Alles im original übergeben, kein AVG oder Min/Max Ermittlung nötig
-                    return dataInformation.data;
-                }
-                // Interpolierung zur y-Größe der Diagramme erfolgt beim zeichnen
-                var newData = dataManager.simpleMinMax(dataInformation.data, factor, maxFreq);
-                return newData;
-            },
+            "dataFunction": standardDataFunction,
             "valueMin": -32767,
             "valueMax": 32767,
             "usePath": true,
             "zeroLine": { color: "#FF0000", opacity: 0.3, height: 1, style: '' }
         }],
         ["SpO2 B-B", { // "e"
-            "dataFunction": function recalc(dataInformation, factor, maxFreq) {
-                var x = 0;
-                if (factor == 0 || dataInformation.freq == 0) {
-                    // Alles übergeben wenn kein Faktor oder Frequenz vorhanden
-                    return dataInformation.data;
-                }
-                if (factor <= 1) {
-                    // Exakt 1 zu 1 Faktor (oder kleiner 1) - Alles im original übergeben, kein AVG oder Min/Max Ermittlung nötig
-                    return dataInformation.data;
-                }
-                // Interpolierung zur y-Größe der Diagramme erfolgt beim zeichnen
-                var newData = dataManager.simpleMinMax(dataInformation.data, factor, maxFreq);
-                return newData;
-            },
+            "dataFunction": standardDataFunction,
             "valueMin": -32767,
             "valueMax": 32767,
             "usePath": true,
             "zeroLine": false
         }],
         ["Pulsrate", { // "f"
-            "dataFunction": function recalc(dataInformation, factor, maxFreq) {
-                var x = 0;
-                if (factor == 0 || dataInformation.freq == 0) {
-                    // Alles übergeben wenn kein Faktor oder Frequenz vorhanden
-                    return dataInformation.data;
-                }
-                if (factor <= 1) {
-                    // Exakt 1 zu 1 Faktor (oder kleiner 1) - Alles im original übergeben, kein AVG oder Min/Max Ermittlung nötig
-                    return dataInformation.data;
-                }
-                // Interpolierung zur y-Größe der Diagramme erfolgt beim zeichnen
-                var newData = dataManager.simpleMinMax(dataInformation.data, factor, maxFreq);
-                return newData;
-            },
+            "dataFunction": standardDataFunction,
             "valueMin": -32767,
             "valueMax": 32767,
             "usePath": true,
             "zeroLine": false
         }],
         ["Plethysmogramm", { // "g"
-            "dataFunction": function recalc(dataInformation, factor, maxFreq) {
-                var x = 0;
-                if (factor == 0 || dataInformation.freq == 0) {
-                    // Alles übergeben wenn kein Faktor oder Frequenz vorhanden
-                    return dataInformation.data;
-                }
-                if (factor <= 1) {
-                    // Exakt 1 zu 1 Faktor (oder kleiner 1) - Alles im original übergeben, kein AVG oder Min/Max Ermittlung nötig
-                    return dataInformation.data;
-                }
-                // Interpolierung zur y-Größe der Diagramme erfolgt beim zeichnen
-                var newData = dataManager.simpleMinMax(dataInformation.data, factor, maxFreq);
-                return newData;
-            },
+            "dataFunction": standardDataFunction,
             "valueMin": -32767,
             "valueMax": 32767,
             "usePath": true,
             "zeroLine": false
         }],
         ["Aktivitaet", { // "h"
-            "dataFunction": function recalc(dataInformation, factor, maxFreq) {
-                var x = 0;
-                if (factor == 0 || dataInformation.freq == 0) {
-                    // Alles übergeben wenn kein Faktor oder Frequenz vorhanden
-                    return dataInformation.data;
-                }
-                if (factor <= 1) {
-                    // Exakt 1 zu 1 Faktor (oder kleiner 1) - Alles im original übergeben, kein AVG oder Min/Max Ermittlung nötig
-                    return dataInformation.data;
-                }
-                // Interpolierung zur y-Größe der Diagramme erfolgt beim zeichnen
-                var newData = dataManager.simpleMinMax(dataInformation.data, factor, maxFreq);
-                return newData;
-            },
+            "dataFunction": standardDataFunction,
             "valueMin": -10,
             "valueMax": 10,
             "usePath": true,
