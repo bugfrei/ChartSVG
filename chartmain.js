@@ -1756,7 +1756,6 @@ const dataManager =
         var v2 = null;
         var min = null;
         var max = null;
-        const d1 = new Date();
         for (var idx = 0; idx <= maxIdx; idx++) {
             const d = dataArray[idx];
             nr++;
@@ -1790,8 +1789,6 @@ const dataManager =
                 max = null;
             }
         }
-        var ddif = Number(new Date() - d1);
-        console.log(`DAUER: ${ddif}`)
         return newData;
     },
     simpleMinMax(data, factor, freq) {
@@ -2731,12 +2728,15 @@ function resizeMark(nr) {
     // chartManager.div.removeChild(dialog.div);
 }
 
-async function start() { // @function Start
+
+var usedDataManager;
+async function prepare() {
+    // Nur die Daten laden, keine UI initialisieren, kein zeichnen...
     //let load = await (fetch("./all.json"));
     let load = await (fetch("./kurven.json"));
     let json = await load.json();
     // --------------------------------  Fuckup Point -------------------------------- 
-    const usedDataManager = dataManager;
+    usedDataManager = dataManager;
 
     usedDataManager.json = json;
     chartManager = new ChartManager(json, usedDataManager);
@@ -2767,6 +2767,9 @@ async function start() { // @function Start
     chart7.addLine("#000000", "Aktivitaet");
 
     chartManager.addHorizontalScale({ after: chart7, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Top });
+}
+async function start() { // @function Start
+    await prepare();
 
 
     /// #start weiss
@@ -4203,6 +4206,6 @@ class UIManager {
 }
 
 
-start();
-//startNode();
-//var x = dataManager.dataInformationFromSignalName("Breathing");
+//start();
+// wird nun im HTML (body onload...) ausgeführt und muss in einer UI5 App in AfterRendering
+
