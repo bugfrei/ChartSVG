@@ -645,6 +645,11 @@ class ChartManager {
         }
     }
 
+    get marks() { return this._marks; }
+    marksFromDoc() { return this._marks.filter(m => m.source == MARK_SOURCE_DOC) }
+    marksFromML() { return this._marks.filter(m => m.source == MARK_SOURCE_ML) }
+    marksFromReport() { return this._marks.filter(m => m.source == MARK_SOURCE_REPORT) }
+
     getUIElementFromName(name) {
         var uielement = null;
         for (var mIdx = 0; mIdx < this._uimanagers.length; mIdx++) {
@@ -3340,7 +3345,11 @@ async function start() { // @function Start
     }
     // @pos TEST-Button Eventfunktion
     function ButtonEvent_TEST(eventArgs) {
-        chartManager.restoreViewLastUndo(true);
+        const htmlElement = eventArgs.srcElement;
+        const uiElement = htmlElement.UIElement;
+        const uiManager = uiElement.uiManager;
+        debugger;
+        const markReport = chartManager.marksFromReport();
     }
     function Option_Event_ZoomModus(eventArgs) {
         const htmlElement = eventArgs.srcElement;
@@ -3432,10 +3441,9 @@ async function start() { // @function Start
         const uiElement = htmlElement.UIElement;
         const uiManager = uiElement.uiManager;
 
-        var esGeht = uiManager.getUIElementFromName("Auswahl");
+        debugger;
+        const reportMarks = chartManager.marksFromReport();
 
-
-        esGeht.Value = 3;
     }
     function fuerRadio(e) {
         console.log('Radio');
@@ -3473,7 +3481,7 @@ function loadMarksTest() {
     chartManager._marks.push(mark2);
 
     const mark3 = new Mark(uuid, 10001, "Report-Text", "#FF5555", "Report-Text", true, svg, MARK_SOURCE_REPORT, 200000, 300000, true);
-    chartManager._marks.push(mark2);
+    chartManager._marks.push(mark3);
 }
 
 
