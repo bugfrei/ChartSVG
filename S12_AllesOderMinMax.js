@@ -34,7 +34,7 @@ function complexeMinMax(dataArray, factor, freq) {
     var ddif = Number(new Date() - d2);
     console.log(`LOAD: ${ddif}`)
     const d1 = new Date();
-    for (var idx = 0; idx < dataArray.length; idx++) {
+    for (var idx = 0; idx <= maxIdx; idx++) {
         const d = dataArray[idx];
         nr++;
         if (d != undefined) {
@@ -42,7 +42,7 @@ function complexeMinMax(dataArray, factor, freq) {
             if (max == null || d > max) max = d;
             nrWithValue++;
             if (nrWithValue == 1) v1 = d;
-            if (nrWithValue == 2) v2 = d;
+            else if (nrWithValue == 2) v2 = d;
         }
         if (nr >= factor || idx == maxIdx) {
             if (nrWithValue == 0) {

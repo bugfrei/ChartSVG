@@ -761,20 +761,20 @@ class ChartManager {
 
             destValues = secondsTotal * this.maxFreq;
         }
-        else if (values) {
+        else if (values != undefined) {
             // Ziel ist eine Values angabe
             destValues = values;
         }
 
-        if (!destValues) {
+        if (destValues == null) {
             throw new Error("[ERROR] positionCenter ohne gültiges Ziel!");
         }
 
         // Zoom 
-        if (zoomValues) {
-            zoomFreq = zoomValues;
+        if (zoomValues != undefined) {
+            zoomFreq = zoomValues
         }
-        else if (zoomSeconds) {
+        else if (zoomSeconds != undefined) {
             var pixelCount = this.pageWidth;
             zoomFreq = zoomSeconds * this.maxFreq / pixelCount * this.maximumXStepDivider;
         }
@@ -1503,13 +1503,12 @@ class Chart {
                 }
                 else {
                     var arr = line.data.dataFunction(this.pickLineData(line.data), this.chartManager.zoomFreq, this.chartManager.maxFreq);
-
                     const pg = new PathGenerator({ SVG: this.svg, min: line.data.valueMin, max: line.data.valueMax });
                     pg.addYValuesFromArray(arr, line.color);
                     // xGap einfliesen lassen (konfigurierter X-Abstand) unter berücksichtigung von Datenmenge (AVG=/2, Min/Max=*1)
                     // Für Ausgleich das es bei Min/Max 2 Werte gibt wird bei AVG der XAbstand verdoppelt
                     const arrCount = arr.length;
-                    const valuesCount = pg.points.length;
+                    const valuesCount = pg.points.reduce((a, b) => a += b.xDistance, 0);
                     const xStepDivider = valuesCount / arrCount;
                     if (chartManager.maximumXStepDivider == null || xStepDivider > chartManager.maximumXStepDivider) {
                         chartManager.maximumXStepDivider = xStepDivider;
@@ -1602,6 +1601,7 @@ class Chart {
                 returnValue[k] = data[k];
             }
         });
+        if (chartManager.partValuesStart < 0) chartManager.partValuesStart = 0;
         returnValue.data = data.data.slice(chartManager.partValuesStart, chartManager.partValuesStart + chartManager.partValuesCount);
         return returnValue;
     }
@@ -1637,8 +1637,9 @@ function standardDataFunction(dataInformation, factor, maxFreq) {
         return dataInformation.data;
     }
     // Interpolierung zur y-Größe der Diagramme erfolgt beim zeichnen
-    debugger;
-    var newData = dataManager.simpleMinMax(dataInformation.data, factor, maxFreq);
+    // ALT MIN/MAX: var newData = dataManager.simpleMinMax(dataInformation.data, factor, maxFreq);
+    var newData = dataManager.complexeMinMax(dataInformation.data, factor, maxFreq);
+    //if (chartManager.zoomFreq <= 31 && dataInformation.sigName == "Pulsrate") debugger;
     return newData;
 }
 // @object dataManager (Signal-Definitionen)
@@ -1734,6 +1735,63 @@ const dataManager =
             }
         }
         console.log("[INFO] simpleAvg newData length: " + newData.length);
+        return newData;
+    },
+    // Funktion gibt ein Array eines Punktes zurück. Dieser kann 4 Zustände haben
+    // 1. null                         -> es wurde für einen Datenbereich, der ein Pixel darstellt (zoomFreq) KEIN gültiger Wert gefunden
+    //                                    In diesem Fall sollte eine Verbindung vom VORHERIGEN Wert erstellt werden (also den alten Wert
+    //                                    nochmal verwenden)
+    // 2. { point: ... }               -> es wurde für den Datenbereich exakt EIN gültiger Wert gefunden
+    //                                    Hier wird diese Pixel mit xGap+1 Abstand gezeichnet und mit einen . versehen
+    // 3. { point1: ..., point2: ... } -> es wurde für den Datenbereich exkakt ZWEI gültige Werte gefunden
+    //                                    Hier werden beide Pixel mit xGap-1+1 Abstand gezeichnet und mit einem . versehen
+
+    // 4. { min: ..., max: ... }       -> es wurde für den Datenbereich mehr als 2 gültige Werte gefunden
+    complexeMinMax(dataArray, factor, freq) {
+        const maxIdx = dataArray.length - 1;
+        var newData = [];
+        var nr = 0;
+        var nrWithValue = 0;
+        var v1 = null;
+        var v2 = null;
+        var min = null;
+        var max = null;
+        const d1 = new Date();
+        for (var idx = 0; idx <= maxIdx; idx++) {
+            const d = dataArray[idx];
+            nr++;
+            if (d != undefined) {
+                if (min == null || d < min) min = d;
+                if (max == null || d > max) max = d;
+                nrWithValue++;
+                if (nrWithValue == 1) v1 = d;
+                else if (nrWithValue == 2) v2 = d;
+            }
+            if (nr >= factor || idx == maxIdx) {
+                if (nrWithValue == 0) {
+                    // Kein Wert in den Daten/Pixel
+                    newData.push(null);
+                }
+                else if (nrWithValue == 1) {
+                    // Exakt EIN Wert in den Daten/Pixel
+                    newData.push({ point: v1 });
+                }
+                else if (nrWithValue == 2) {
+                    // Exakt ZWEI Werte in den Daten/Pixel
+                    newData.push({ point1: v1, point2: v2 })
+                }
+                else {
+                    // > 1 Wert in den Daten/Pixel
+                    newData.push({ min: min, max: max });
+                }
+                nrWithValue = 0;
+                nr = 0;
+                min = null;
+                max = null;
+            }
+        }
+        var ddif = Number(new Date() - d1);
+        console.log(`DAUER: ${ddif}`)
         return newData;
     },
     simpleMinMax(data, factor, freq) {
@@ -2347,7 +2405,7 @@ class PathGenerator {
         this.needcalc = true;
     }
     // Fügt einen einzellnen Y-Wert hinzu, 0 = unten
-    addYValue(y, color) {
+    addYValue(y, color, xDistance, dot) {
         var col = this.colors.find(c => c.color == color);
         var y = (y / this.yFactor) - this.minDiff;
 
@@ -2355,48 +2413,58 @@ class PathGenerator {
             col = { color: color, points: [], path: "" };
             this.colors.push(col);
         }
-        this.points.push({ y: this.height - y, color: col });
+        this.points.push({ y: this.height - y, color: col, xDistance: xDistance, dot: dot });
         this.needcalc = true;
     }
     // Fügt mehrere einzellne Y-Werte hinzu, 0 = unten
     addYValues(values) {
         values.forEach(v => {
-            this.addYValue(v.y, v.color);
+            this.addYValue(v.y, v.color, 1, false);
         });
     }
     addYValuesFromArray(array, color) {
-        array.forEach(v => {
-            if (v == undefined) {
+        var oldValue = null;
+        array.forEach(vv => {
+            var v;
+            if (vv == undefined) {
                 // TODO Prüfen bei Zoom < 1 warum UNDEFINED vorkommen!!!!!
             }
+            else if (vv == null) {
+                // kein Wert, alten Wert nutzen
+                v = oldValue;
+            }
             else {
+                v = vv;
+            }
+
+            if (v != undefined && v != null) {
                 if (!isNaN(v.min) && !isNaN(v.max)) {
                     // Array mit min/max Werten
                     if (v.color) {
                         // und mit Farbangaben
-                        this.addYValue(v.min, v.color);
-                        this.addYValue(v.max, v.color);
+                        this.addYValue(v.min, v.color, 1, false);
+                        this.addYValue(v.max, v.color, 1, false);
                     }
                     else {
                         // aber ohne Farbangaben (Parameter nutzen)
-                        this.addYValue(v.min, color);
-                        this.addYValue(v.max, color);
+                        this.addYValue(v.min, color, 1, false);
+                        this.addYValue(v.max, color, 1, false);
                     }
                 }
                 else {
-                    if (!isNaN(v.min)) {
-                        // Nur Min-Wert
+                    if (!isNaN(v.point)) {
+                        // Nur point-Wert
                         // Mit Farbangaben bzw. Parameter nutzen
-                        this.addYValue(v.min, v.color ? v.color : color);
+                        this.addYValue(v.point, v.color ? v.color : color, 2, true);
                     }
-                    if (!isNaN(v.max)) {
-                        // Nur Max-Wert
-                        // Mit Farbangaben bzw. Parameter nutzen
-                        this.addYValue(v.max, v.color ? v.color : color);
+                    else if (!isNaN(v.point1) && !isNaN(v.point2)) {
+                        // Value1 und Value2
+                        this.addYValue(v.point1, color, 1, true);
+                        this.addYValue(v.point2, color, 1, true);
                     }
-                    if (isNaN(v.min) && isNaN(v.min)) {
-                        // Weder Min, noch Max-Wert, d.h. ein Array aus Zahlen
-                        this.addYValue(v, color);
+                    else {
+                        // Weder min/max, value, value1/2 -> es muss sich um eine einfache Zahl handeln
+                        this.addYValue(v, color, 2, true);
                     }
                 }
             }
@@ -2421,11 +2489,11 @@ class PathGenerator {
         var y = this.startPointY;
         this.points.forEach(p => {
             if (gapPixel) {
-                p.color.points.push({ x1: x, y1: y, x2: x + gapPixel, y2: p.y });
-                x += gapPixel;
+                p.color.points.push({ x1: x, y1: y, x2: x + (gapPixel * p.xDistance), y2: p.y, dot: p.dot });
+                x += (gapPixel * p.xDistance);
             }
             else {
-                p.color.points.push({ x1: x, y1: y, x2: p.x, y2: p.y });
+                p.color.points.push({ x1: x, y1: y, x2: p.x, y2: p.y, dot: false });
                 x = p.x;
             }
             y = p.y;
@@ -2434,6 +2502,7 @@ class PathGenerator {
 
         this.colors.forEach(c => {
             var path = "";
+            var dots = "";
             var x = -1;
             var y = -1;
 
@@ -2441,16 +2510,23 @@ class PathGenerator {
                 if (p.x1 == x && p.y1 == y) {
                     // Alter Endpunkt entspricht dem neuen Startpunkt, nur eine Linie hinzufügen
                     path += `L${p.x2},${p.y2}`;
+                    if (p.dot && gapPixel > 1.4) {
+                        dots += `M${p.x2},${p.y2}L${p.x2},${p.y2}`
+                    }
                 }
                 else {
                     // Versetzter Startpunkt, erst dorthin bewegen
                     path += `M${p.x1},${p.y1}L${p.x2},${p.y2}`;
+                    if (p.dot && gapPixel > 1.4) {
+                        dots += `M${p.x2},${p.y2}L${p.x2},${p.y2}`;
+                    }
                 }
                 x = p.x2;
                 y = p.y2;
             });
 
             c.path = path;
+            c.dots = dots;
         });
         this.needcalc = false;
     }
@@ -2459,9 +2535,12 @@ class PathGenerator {
             svg = this.svg;
         }
         var path = null;
+        var dotPath = null;
         if (this.needcalc) {
             this.makePath(gapPixel);
         }
+
+        const dotWidth = gapPixel > 5 ? 4.167 : gapPixel / 1.2;
 
         this.colors.forEach(c => {
             path = createPath({
@@ -2469,6 +2548,12 @@ class PathGenerator {
                 style: `stroke:${c.color};stroke-width:1;fill:none;`
             });
             svg.appendChild(path);
+
+            dotPath = createPath({
+                d: c.dots,
+                style: `stroke:${c.color};stroke-width:${dotWidth}px;stroke-linecap:round;`
+            });
+            svg.appendChild(dotPath);
         })
     }
 
@@ -3371,16 +3456,23 @@ async function start() { // @function Start
 }
 
 function loadMarks() {
+    loadMarksTest();
+}
+function loadMarksTest() {
     // TODO Wenn DB Verbindung, die vorhanden Marks aus dem JSON laden
     const svg = chartManager.charts[0].svg;
     const uuid = ""; // Für Implementierung als Component (wenn Datenbankzugriff besteht und Markierungen geladen werden)
-    const mark = new Mark(uuid, 10000, "Test", "#ff0000", "TEST", true, svg, MARK_SOURCE_DOC, 10000, 30000);
+    const mark = new Mark(uuid, 10000, "Test", "#ff0000", "TEST", true, svg, MARK_SOURCE_DOC, 10000, 50000);
 
     chartManager._marks.push(mark);
 
-    const mark2 = new Mark(uuid, 10001, "90%", "#aaaaaa", "Apnoe", true, svg, MARK_SOURCE_ML, 50000, 70000, true);
+    const mark2 = new Mark(uuid, 10001, "90%", "#aaaaaa", "Apnoe", true, svg, MARK_SOURCE_ML, 100000, 150000, true);
+    chartManager._marks.push(mark2);
+
+    const mark3 = new Mark(uuid, 10001, "Report-Text", "#FF5555", "Report-Text", true, svg, MARK_SOURCE_REPORT, 200000, 300000, true);
     chartManager._marks.push(mark2);
 }
+
 
 class Vertical_Scale {
     constructor({ vscale_alignment, width }) {
