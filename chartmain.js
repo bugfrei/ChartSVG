@@ -1652,10 +1652,10 @@ const dataManager =
 {
     json: null,
     dataInformation: [
-        ["Nasaler Druck", { // "a"
+        ["PPG_pulse", { // "a"
             "dataFunction": standardDataFunction,
-            "valueMin": -48.3166,
-            "valueMax": 48.3166,
+            "valueMin": 25,
+            "valueMax": 7500,
             "usePath": true,
             /*
             zeroLine: Objekt mit mindestens 3 Angaben:
@@ -1667,55 +1667,118 @@ const dataManager =
             */
             "zeroLine": { color: "#FF0000", opacity: 0.3, height: 1, style: '' }
         }],
-        ["Thorax", { // "b"
+        ["PPG_SpO2", { // "b"
             "dataFunction": standardDataFunction,
-            "valueMin": -17.0449,
-            "valueMax": 17.0449,
+            "valueMin": -1318,
+            "valueMax": 255,
             "usePath": true,
             "zeroLine": { color: "#FF0000", opacity: 0.3, height: 1, style: '' }
         }],
-        ["PSchnarchen", { // "c"
+        ["PPG_wave", { // "c"
             "dataFunction": standardDataFunction,
-            "valueMin": -48.3166,
-            "valueMax": 48.3166,
+            "valueMin": 18769,
+            "valueMax": 23064,
             "usePath": true,
             "zeroLine": { color: "#FF0000", opacity: 0.3, height: 1, style: '' }
         }],
-        ["SpO2", { // "d"
+        ["PPG_accX", { // "d"
             "dataFunction": standardDataFunction,
-            "valueMin": -32767,
-            "valueMax": 32767,
+            "valueMin": -32764,
+            "valueMax": 32764,
             "usePath": true,
             "zeroLine": { color: "#FF0000", opacity: 0.3, height: 1, style: '' }
         }],
-        ["SpO2 B-B", { // "e"
+        ["PPG_accY", { // "e"
             "dataFunction": standardDataFunction,
-            "valueMin": -32767,
-            "valueMax": 32767,
+            "valueMin": -32764,
+            "valueMax": 32750,
             "usePath": true,
             "zeroLine": false
         }],
-        ["Pulsrate", { // "f"
+        ["PPG_accZ", { // "f"
             "dataFunction": standardDataFunction,
-            "valueMin": -32767,
-            "valueMax": 32767,
+            "valueMin": -32750,
+            "valueMax": 29842,
             "usePath": true,
             "zeroLine": false
         }],
-        ["Plethysmogramm", { // "g"
+        ["PPG_velX", { // "g"
             "dataFunction": standardDataFunction,
-            "valueMin": -32767,
-            "valueMax": 32767,
+            "valueMin": -25080,
+            "valueMax": 32270,
             "usePath": true,
             "zeroLine": false
         }],
-        ["Aktivitaet", { // "h"
+        ["PPG_velY", { // "h"
             "dataFunction": standardDataFunction,
-            "valueMin": -10,
-            "valueMax": 10,
+            "valueMin": -32731,
+            "valueMax": 32764,
             "usePath": true,
             "zeroLine": false
-        }]
+        }],
+        ["PPG_velZ", { // "i"
+            "dataFunction": standardDataFunction,
+            "valueMin": -18037,
+            "valueMax": 17627,
+            "usePath": true,
+            "zeroLine": false
+        }],
+        ["RSP_impedance", { // "j"
+            "dataFunction": standardDataFunction,
+            "valueMin": 222770,
+            "valueMax": 585808,
+            "usePath": true,
+            "zeroLine": false
+        }],
+        ["RSP_phase", { // "k"
+            "dataFunction": standardDataFunction,
+            "valueMin": 5738803,
+            "valueMax": 6971978,
+            "usePath": true,
+            "zeroLine": false
+        }],
+        ["RSP_accX", { // "l"
+            "dataFunction": standardDataFunction,
+            "valueMin": -28331,
+            "valueMax": 27288,
+            "usePath": true,
+            "zeroLine": false
+        }],
+        ["RSP_accY", { // "m"
+            "dataFunction": standardDataFunction,
+            "valueMin": -22085,
+            "valueMax": 13012,
+            "usePath": true,
+            "zeroLine": false
+        }],
+        ["RSP_accZ", { // "n"
+            "dataFunction": standardDataFunction,
+            "valueMin": -14605,
+            "valueMax": 28973,
+            "usePath": true,
+            "zeroLine": false
+        }],
+        ["PPG_velX", { // "o"
+            "dataFunction": standardDataFunction,
+            "valueMin": -25080,
+            "valueMax": 32270,
+            "usePath": true,
+            "zeroLine": false
+        }],
+        ["PPG_velY", { // "p"
+            "dataFunction": standardDataFunction,
+            "valueMin": -32731,
+            "valueMax": 32764,
+            "usePath": true,
+            "zeroLine": false
+        }],
+        ["PPG_velZ", { // "q"
+            "dataFunction": standardDataFunction,
+            "valueMin": -18037,
+            "valueMax": 17627,
+            "usePath": true,
+            "zeroLine": false
+        }],
     ],
     simpleAvg(data, factor, freq) {
         var nr = 0;
@@ -1820,7 +1883,8 @@ const dataManager =
         return newData;
     },
     dataInformationFromSignalName(sigName) {
-        const re = /\d/;
+        const re = /\d{1,2}/;
+
         const sigNr = Number(re.exec(Object.entries(this.json.header).filter(e => e[1] == sigName)[0][0])[0]);
         const sigChar = String.fromCharCode(sigNr + 96);
         const information = this.dataInformation.find(e => e[0] == sigName)[1];
@@ -2738,7 +2802,7 @@ var usedDataManager;
 async function prepare() {
     // Nur die Daten laden, keine UI initialisieren, kein zeichnen...
     //let load = await (fetch("./all.json"));
-    let load = await (fetch("./kurven.json"));
+    let load = await (fetch("./data2023.json"));
     let json = await load.json();
     // --------------------------------  Fuckup Point -------------------------------- 
     usedDataManager = dataManager;
@@ -2748,28 +2812,41 @@ async function prepare() {
 
     // ------------------------------  END Fuckup Point ------------------------------ 
 
-    var chart1 = chartManager.addChart("Nasal");
+    var chart1 = chartManager.addChart("PPG_pulse");
     chartManager.addHorizontalScale({ before: chart1, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Bottom });
-    chart1.addLine("#000000", "Nasaler Druck");
+    chart1.addLine("#000000", "PPG_pulse");
 
-    var chart2 = chartManager.addChart("Thorax");
-    chart2.addLine("#000000", "Thorax");
+    var chart2 = chartManager.addChart("PPG_SpO2");
+    chart2.addLine("#000000", "PPG_SpO2");
 
-    var chart3 = chartManager.addChart("PSchnarchen");
-    chart3.addLine("#000000", "PSchnarchen")
+    var chart3 = chartManager.addChart("PPG_wave");
+    chart3.addLine("#000000", "PPG_wave")
 
-    var chart4 = chartManager.addChart("SpO2");
-    chart4.addLine("#880000", "SpO2");
-    chart4.addLine("#008800", "SpO2 B-B");
+    var chart4 = chartManager.addChart("PPG_acc");
+    chart4.addLine("#880000", "PPG_accX");
+    chart4.addLine("#008800", "PPG_accY");
+    chart4.addLine("#000088", "PPG_accZ");
 
-    var chart5 = chartManager.addChart("Pulsrate");
-    chart5.addLine("#000000", "Pulsrate");
+    var chart5 = chartManager.addChart("PPG_vel");
+    chart5.addLine("#880000", "PPG_velX");
+    chart5.addLine("#008800", "PPG_velY");
+    chart5.addLine("#000088", "PPG_velZ");
 
-    var chart6 = chartManager.addChart("Plethysmogramm");
-    chart6.addLine("#000000", "Plethysmogramm");
+    var chart6 = chartManager.addChart("RSP_impedance");
+    chart6.addLine("#000000", "RSP_impedance");
 
-    var chart7 = chartManager.addChart("Aktivität");
-    chart7.addLine("#000000", "Aktivitaet");
+    var chart7 = chartManager.addChart("RSP_phase");
+    chart7.addLine("#000000", "RSP_phase");
+
+    var chart8 = chartManager.addChart("RSP_acc");
+    chart8.addLine("#880000", "RSP_accX");
+    chart8.addLine("#008800", "RSP_accY");
+    chart8.addLine("#000088", "RSP_accZ");
+
+    var chart9 = chartManager.addChart("PPG_vel");
+    chart9.addLine("#880000", "PPG_velX");
+    chart9.addLine("#008800", "PPG_velY");
+    chart9.addLine("#000088", "PPG_velZ");
 
     chartManager.addHorizontalScale({ after: chart7, height: HORIZONTAL_SCALE_HEIGHT, align: HSCALE_ALIGNMENTS.Top });
 }
@@ -3350,6 +3427,8 @@ async function start() { // @function Start
         const uiManager = uiElement.uiManager;
         debugger;
         const markReport = chartManager.marksFromReport();
+
+
     }
     function Option_Event_ZoomModus(eventArgs) {
         const htmlElement = eventArgs.srcElement;
